@@ -934,6 +934,9 @@
         statusEl.style.color = 'var(--ok)';
         statusEl.textContent = 'Resultado enviado com sucesso.';
         state.status[id] = 'completed';
+        if(id < LEVELS.length && state.status[id + 1] === 'locked'){
+          state.status[id + 1] = 'unlocked';
+        }
         renderMap();
         const backToMapBtn = document.createElement('button');
         backToMapBtn.className = 'complete-btn';
