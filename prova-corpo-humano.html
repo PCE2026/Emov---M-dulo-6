@@ -823,11 +823,9 @@
 
       if(firstView){
         buttons.forEach(b => { b.disabled = true; });
-        nextBtn.disabled = true;
         setTimeout(() => {
           visited[idx] = true;
           buttons.forEach(b => { b.disabled = false; });
-          nextBtn.disabled = false;
         }, MIN_ANSWER_DELAY_MS);
       }
     }
@@ -910,11 +908,9 @@
 
       if(firstView){
         opts.forEach(b => { b.disabled = true; });
-        nextBtn.disabled = true;
         setTimeout(() => {
           visited[idx] = true;
           opts.forEach(b => { b.disabled = false; });
-          nextBtn.disabled = false;
         }, MIN_ANSWER_DELAY_MS);
       }
     }
