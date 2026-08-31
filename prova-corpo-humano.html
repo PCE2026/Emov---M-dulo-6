@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prova — Módulo 6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0B1526;
+    --bg-1:#0F1E33;
+    --bg-2:#15283F;
+    --signal:#5FE3D3;
+    --breath:#FF9F6B;
+    --locked:#33445A;
+    --locked-fill:#1A2739;
+    --text:#EAF2F0;
+    --text-dim:#8FA3B8;
+    --violet:#A78BFA;
+    --ok:#7CD98A;
+    --danger:#E06B6B;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    min-height:100%;
+    background:var(--bg-0);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    overflow-x:hidden;
+  }
+  body{ position:relative; min-height:100vh; }
+
+  .breath-bg{
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(ellipse 60% 40% at 30% 15%, rgba(95,227,211,0.10), transparent 60%),
+      radial-gradient(ellipse 55% 45% at 75% 80%, rgba(255,159,107,0.08), transparent 60%);
+    animation:breathe 7s ease-in-out infinite;
+  }
+  @keyframes breathe{
+    0%,100%{ transform:scale(1); opacity:0.85; }
+    50%{ transform:scale(1.06); opacity:1; }
+  }
+
+  header{
+    position:relative; z-index:2;
+    max-width:520px; margin:0 auto;
+    padding:28px 24px 8px;
+  }
+  header h1{
+    font-family:'Fraunces',serif; font-weight:600; font-size:1.5rem;
+    line-height:1.15; margin:0 0 4px; letter-spacing:-0.01em;
+  }
+  header p{ margin:0; font-size:0.85rem; color:var(--text-dim); }
+
+  .exam-badge{
+    display:inline-block;
+    margin-top:10px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.72rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--breath);
+    border:1px solid var(--breath);
+    border-radius:999px;
+    padding:4px 10px;
+  }
+
+  main{
+    position:relative; z-index:2;
+    max-width:520px; margin:0 auto;
+    padding:10px 8px 60px;
+  }
+
+  .code-unlock{
+    margin:6px 8px 18px;
+  }
+  .code-unlock summary{
+    font-size:0.82rem;
+    color:var(--text-dim);
+    cursor:pointer;
+    list-style:none;
+  }
+  .code-unlock summary::-webkit-details-marker{ display:none; }
+  .code-unlock summary:before{ content:'🔑 '; }
+  .code-unlock-row{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+  }
+  .code-unlock-row input{
+    flex:1;
+    background:var(--bg-2);
+    border:1px solid var(--locked);
+    color:var(--text);
+    border-radius:10px;
+    padding:10px 12px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.9rem;
+    text-transform:uppercase;
+  }
+  .code-unlock-row button{
+    flex:0 0 auto;
+    background:var(--violet);
+    color:#1A1330;
+    border:none;
+    border-radius:10px;
+    padding:10px 16px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:0.85rem;
+    cursor:pointer;
+  }
+  .code-msg{
+    margin-top:8px;
+    font-size:0.8rem;
+  }
+  .code-msg.ok{ color:var(--ok); }
+  .code-msg.bad{ color:var(--danger); }
+
+  .map-wrap{ position:relative; }
+  svg.path-map{ width:100%; height:auto; display:block; overflow:visible; }
+
+  .path-base{ fill:none; stroke:var(--locked); stroke-width:5; stroke-linecap:round; }
+  .path-progress{
+    fill:none; stroke:var(--signal); stroke-width:5; stroke-linecap:round;
+    filter:drop-shadow(0 0 6px rgba(95,227,211,0.55));
+    transition:stroke-dashoffset 900ms cubic-bezier(.4,0,.2,1);
+  }
+  .pulse-dot{ fill:var(--signal); filter:drop-shadow(0 0 5px rgba(95,227,211,0.9)); }
+
+  .node{ cursor:pointer; outline:none; transform-box:fill-box; transform-origin:center; }
+  .node circle.ring{
+    fill:var(--locked-fill); stroke:var(--locked); stroke-width:3;
+    transition:stroke 300ms, fill 300ms;
+  }
+  .node.unlocked circle.ring{
+    stroke:var(--signal); fill:#123A38;
+    animation:node-breathe 3.2s ease-in-out infinite;
+  }
+  .node.completed circle.ring{ stroke:var(--ok); fill:#13351F; }
+  .node.locked{ cursor:default; }
+  @keyframes node-breathe{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+  .node:focus-visible circle.ring{ stroke:var(--violet); stroke-width:4; }
+
+  .node text.num{
+    font-family:'JetBrains Mono',monospace; font-weight:600; fill:var(--text-dim);
+    font-size:15px; text-anchor:middle; dominant-baseline:central; pointer-events:none;
+  }
+  .node.unlocked text.num, .node.completed text.num{ fill:var(--text); }
+  .node text.label{
+    font-family:'Inter',sans-serif; font-size:11px; font-weight:500;
+    fill:var(--text-dim); pointer-events:none;
+  }
+  .node.unlocked text.label, .node.completed text.label{ fill:var(--text); }
+
+  .level-screen{
+    position:fixed; inset:0; z-index:10; background:var(--bg-0);
+    display:none; flex-direction:column;
+  }
+  .level-screen.open{ display:flex; }
+
+  .level-header{
+    display:flex; align-items:center; gap:14px;
+    padding:20px 20px 14px; border-bottom:1px solid var(--bg-2);
+  }
+  .back-btn{
+    background:none; border:1px solid var(--locked); color:var(--text);
+    border-radius:999px; width:36px; height:36px; font-size:1rem; cursor:pointer;
+  }
+  .back-btn:hover{ border-color:var(--signal); color:var(--signal); }
+  .level-header h2{ font-family:'Fraunces',serif; font-weight:600; font-size:1.2rem; margin:0; }
+  .level-header .eyebrow{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+    color:var(--signal); letter-spacing:0.08em; margin-bottom:2px;
+  }
+
+  .level-body{ flex:1; max-width:520px; width:100%; margin:0 auto; padding:24px 22px 40px; }
+
+  /* identification form */
+  .id-form label{
+    display:block; font-size:0.8rem; color:var(--text-dim); margin:14px 0 6px;
+  }
+  .id-form input{
+    width:100%; background:var(--bg-2); border:1px solid var(--locked);
+    color:var(--text); border-radius:10px; padding:12px; font-size:0.95rem;
+    font-family:'Inter',sans-serif;
+  }
+  .id-form input:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
+  .id-error{ color:var(--danger); font-size:0.82rem; margin-top:10px; min-height:18px; }
+
+  /* status bar during attempt */
+  .attempt-status{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--bg-2); border:1px solid var(--locked); border-radius:12px;
+    padding:12px 16px; margin-bottom:20px;
+    font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+  }
+  .attempt-status .exits{ color:var(--breath); }
+  .attempt-status .timer{ color:var(--signal); }
+
+  .stage-title{ font-family:'Fraunces',serif; font-weight:600; font-size:1.05rem; margin:0 0 4px; }
+  .stage-progress{ font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-dim); margin-bottom:16px; }
+  .flash-card{
+    background:var(--bg-2); border:1px solid var(--locked); border-radius:14px;
+    padding:22px; font-size:1.05rem; line-height:1.5; margin-bottom:18px;
+    min-height:60px; display:flex; align-items:center;
+  }
+  .flash-btns{ display:flex; gap:10px; }
+  .opt-btn{
+    flex:1; background:var(--bg-1); border:1px solid var(--locked); color:var(--text);
+    border-radius:10px; padding:13px 10px; font-family:'Inter',sans-serif;
+    font-weight:600; font-size:0.9rem; cursor:pointer; text-align:center;
+  }
+  .opt-btn:hover:not(:disabled){ border-color:var(--signal); color:var(--signal); }
+  .opt-btn:disabled{ cursor:default; opacity:0.75; }
+  .opt-btn:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
+  .flash-feedback{ margin-top:12px; font-size:0.88rem; min-height:20px; }
+  .flash-feedback.ok{ color:var(--ok); }
+  .flash-feedback.bad{ color:var(--breath); }
+
+  .quiz-timer{ font-family:'JetBrains Mono',monospace; font-size:0.9rem; color:var(--breath); margin-bottom:10px; }
+  .quiz-options{ display:flex; flex-direction:column; gap:10px; }
+  .quiz-opt.correct, .opt-btn.correct{ border-color:var(--ok) !important; color:var(--ok) !important; }
+  .quiz-opt.wrong, .opt-btn.wrong{ border-color:var(--danger) !important; color:var(--danger) !important; }
+
+  .placeholder-card{
+    border:1px dashed var(--locked); border-radius:14px; padding:22px;
+    color:var(--text-dim); font-size:0.92rem; line-height:1.5;
+  }
+  .complete-btn{
+    margin-top:24px; background:var(--signal); color:#062824; border:none;
+    border-radius:10px; padding:13px 20px; font-family:'Inter',sans-serif;
+    font-weight:600; font-size:0.95rem; cursor:pointer; width:100%;
+  }
+  .complete-btn:hover{ filter:brightness(1.08); }
+  .complete-btn:disabled{ opacity:0.6; cursor:default; }
+  .complete-btn:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
+
+  .results-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0 6px;
+  }
+  .results-grid .cell{
+    background:var(--bg-2); border:1px solid var(--locked); border-radius:12px;
+    padding:14px; text-align:center;
+  }
+  .results-grid .cell .value{
+    font-family:'JetBrains Mono',monospace; font-size:1.3rem; font-weight:600; color:var(--signal);
+  }
+  .results-grid .cell .label{ font-size:0.72rem; color:var(--text-dim); margin-top:4px; }
+
+  /* overlays */
+  .overlay{
+    position:fixed; inset:0; background:rgba(11,21,38,0.92);
+    display:none; align-items:center; justify-content:center; z-index:20; padding:24px;
+  }
+  .overlay.open{ display:flex; }
+  .overlay-card{ max-width:400px; width:100%; border-radius:16px; padding:28px 24px; text-align:center; }
+  .overlay-card.warning{ background:#241C0F; border:1px solid var(--breath); }
+  .overlay-card.restart{ background:#2A1414; border:1px solid var(--danger); }
+  .overlay-card .icon{ font-size:2rem; margin-bottom:10px; display:block; }
+  .overlay-card h2{ font-family:'Fraunces',serif; font-size:1.15rem; margin:0 0 10px; }
+  .overlay-card p{ color:var(--text-dim); font-size:0.92rem; line-height:1.5; margin:0 0 20px; }
+  .overlay-card.warning button{ background:var(--breath); color:#241C0F; border:none; }
+  .overlay-card.restart button{ background:var(--danger); color:#2A1414; border:none; }
+  .overlay-card button{
+    border-radius:10px; padding:12px 18px; font-family:'Inter',sans-serif;
+    font-weight:600; font-size:0.92rem; cursor:pointer; width:100%;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .breath-bg, .node.unlocked circle.ring{ animation:none; }
+    .path-progress{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="breath-bg" aria-hidden="true"></div>
+
+<header>
+  <h1>Prova — Módulo 6</h1>
+  <p>Regulação, Circulação, Respiração, Digestão &amp; Equilíbrio Interno</p>
+  <span class="exam-badge">Modo de Prova — sem material de apoio</span>
+</header>
+
+<main>
+  <details class="code-unlock">
+    <summary>Tenho um código de desbloqueio</summary>
+    <div class="code-unlock-row">
+      <input type="text" id="code-input" placeholder="Código do dia">
+      <button id="code-submit-btn">Desbloquear</button>
+    </div>
+    <div class="code-msg" id="code-msg"></div>
+  </details>
+
+  <div class="map-wrap">
+    <svg class="path-map" viewBox="0 0 400 900" id="map-svg">
+      <path class="path-base" d="M120,780 C200,700 260,680 280,620 C300,560 180,520 100,460 C40,400 260,360 300,300 C340,240 200,180 160,120" />
+      <path class="path-progress" id="progress-path" d="M120,780 C200,700 260,680 280,620 C300,560 180,520 100,460 C40,400 260,360 300,300 C340,240 200,180 160,120" />
+
+      <circle class="pulse-dot" r="5" id="pulse-dot">
+        <animateMotion dur="6s" repeatCount="indefinite"
+          path="M120,780 C200,700 260,680 280,620 C300,560 180,520 100,460 C40,400 260,360 300,300 C340,240 200,180 160,120" />
+      </circle>
+
+      <g class="node" data-level="1" tabindex="0" transform="translate(120,780)">
+        <circle class="ring" r="30"></circle>
+        <text class="num" y="0">1</text>
+        <text class="label" x="42" y="-6">Regulação Interna</text>
+        <text class="label" x="42" y="10">Nervosa &amp; Endócrina</text>
+      </g>
+
+      <g class="node" data-level="2" tabindex="0" transform="translate(280,620)">
+        <circle class="ring" r="30"></circle>
+        <text class="num" y="0">2</text>
+        <text class="label" x="42" y="-6">Aparelho</text>
+        <text class="label" x="42" y="10">Circulatório</text>
+      </g>
+
+      <g class="node" data-level="3" tabindex="0" transform="translate(100,460)">
+        <circle class="ring" r="30"></circle>
+        <text class="num" y="0">3</text>
+        <text class="label" x="-42" y="-6" text-anchor="end">Aparelho</text>
+        <text class="label" x="-42" y="10" text-anchor="end">Respiratório</text>
+      </g>
+
+      <g class="node" data-level="4" tabindex="0" transform="translate(300,300)">
+        <circle class="ring" r="30"></circle>
+        <text class="num" y="0">4</text>
+        <text class="label" x="42" y="-6">Digestivo</text>
+        <text class="label" x="42" y="10">&amp; Urinário</text>
+      </g>
+
+      <g class="node" data-level="5" tabindex="0" transform="translate(160,120)">
+        <circle class="ring" r="34"></circle>
+        <text class="num" y="0">5</text>
+        <text class="label" x="46" y="-6">Equilíbrio Final</text>
+        <text class="label" x="46" y="10">Térmico &amp; Hídrico</text>
+      </g>
+    </svg>
+  </div>
+</main>
+
+<div class="level-screen" id="level-screen">
+  <div class="level-header">
+    <button class="back-btn" id="back-btn" aria-label="Voltar ao mapa">←</button>
+    <div>
+      <span class="eyebrow" id="level-eyebrow">NÍVEL X</span>
+      <h2 id="level-title">Título do nível</h2>
+    </div>
+  </div>
+  <div class="level-body" id="level-body">
+    <div id="level-content"></div>
+  </div>
+</div>
+
+<div class="overlay" id="warning-overlay">
+  <div class="overlay-card warning">
+    <span class="icon">⚠️</span>
+    <h2>Já saíste do separador uma vez</h2>
+    <p>Tens o caderno para consultar. Se saíres do separador outra vez, este nível recomeça do início.</p>
+    <button id="warning-ok-btn">Entendido, continuar</button>
+  </div>
+</div>
+
+<div class="overlay" id="restart-overlay">
+  <div class="overlay-card restart">
+    <span class="icon">🔄</span>
+    <h2>Nível reiniciado</h2>
+    <p>Saíste do separador demasiadas vezes, por isso este nível recomeça do início.</p>
+    <button id="restart-ok-btn">Começar de novo</button>
+  </div>
+</div>
+
+<script>
+  // ===== CONFIGURAÇÃO =====
+  const DAILY_CODE = 'PROVA2026'; // muda este código antes de cada dia de prova
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHAsWJCo5vv5QVajCKuX69VAeYjYdrOAHGCtPz3EZqX5R-1h7KBAT5C3r0Pv3YJ8D6/exec';
+
+  // ===== DADOS DE CONTEÚDO (iguais ao jogo de treino) =====
+  const LEVELS = [
+    { id:1, name:'Regulação Nervosa e Endócrina' },
+    { id:2, name:'Aparelho Circulatório' },
+    { id:3, name:'Aparelho Respiratório' },
+    { id:4, name:'Aparelho Digestivo e Urinário' },
+    { id:5, name:'Regulação Térmica e Hídrica' },
+  ];
+
+  const CLASSIFY_NE = [
+    { text:'Transmite a mensagem através de impulsos elétricos.', answer:'nervosa' },
+    { text:'Transmite a mensagem através do sangue, sob a forma de hormonas.', answer:'endocrina' },
+    { text:'Resposta rápida, medida em milissegundos.', answer:'nervosa' },
+    { text:'Resposta lenta, que pode demorar minutos a horas a instalar-se.', answer:'endocrina' },
+    { text:'Efeito geralmente localizado e de curta duração.', answer:'nervosa' },
+    { text:'Efeito geralmente generalizado e duradouro.', answer:'endocrina' },
+    { text:'Usa neurónios como via de comunicação.', answer:'nervosa' },
+    { text:'Usa glândulas endócrinas e o sangue como via de comunicação.', answer:'endocrina' },
+  ];
+
+  const CLASSIFY_SP = [
+    { text:'Aumenta a frequência cardíaca.', answer:'simpatico' },
+    { text:'Diminui a frequência cardíaca.', answer:'parassimpatico' },
+    { text:'Dilata as pupilas.', answer:'simpatico' },
+    { text:'Contrai as pupilas.', answer:'parassimpatico' },
+    { text:'Aumenta a frequência respiratória.', answer:'simpatico' },
+    { text:'Estimula os processos digestivos.', answer:'parassimpatico' },
+    { text:'Prepara o corpo para "luta ou fuga".', answer:'simpatico' },
+    { text:'Promove o "descanso e digestão".', answer:'parassimpatico' },
+  ];
+
+  const QUIZ_L1 = [
+    { q:'O que é uma glândula endócrina?', options:['Um órgão que produz hormonas e as liberta diretamente no sangue','Um músculo que se contrai por estímulo elétrico','Um vaso sanguíneo de grande calibre','Um recetor sensorial da pele'], correct:0 },
+    { q:'O que é uma hormona?', options:['Um tipo de célula nervosa','Um mensageiro químico transportado pelo sangue até um órgão-alvo','Um recetor localizado no cérebro','Um tipo de vaso linfático'], correct:1 },
+    { q:'O que é o "órgão-alvo" de uma hormona?', options:['O órgão que produz a hormona','Qualquer órgão do corpo, sem exceção','O órgão ou tecido com recetores específicos que respondem a essa hormona','O órgão que elimina a hormona do corpo'], correct:2 },
+    { q:'Porque é a hipófise chamada "glândula mestra"?', options:['Porque é a maior glândula do corpo','Porque regula a atividade de várias outras glândulas endócrinas','Porque só atua durante o sono','Porque não depende do cérebro'], correct:1 },
+    { q:'Qual destas características pertence à regulação NERVOSA (e não à endócrina)?', options:['Efeito lento e duradouro','Mensageiro transportado pelo sangue','Resposta rápida e de curta duração','Ação generalizada em todo o corpo'], correct:2 },
+    { q:'Antes de uma competição importante, um atleta sente o coração acelerar e as mãos a tremer ligeiramente, mesmo sem ainda ter começado a competir. Isto deve-se sobretudo à ação de:', options:['Sistema nervoso simpático e libertação de adrenalina','Sistema nervoso parassimpático','Sistema digestivo','Sistema urinário'], correct:0 },
+  ];
+
+  const CLASSIFY_CIRC = [
+    { text:'Sai do ventrículo esquerdo e leva sangue oxigenado a todo o corpo.', answer:'grande' },
+    { text:'Sai do ventrículo direito e leva sangue aos pulmões.', answer:'pequena' },
+    { text:'Também chamada circulação sistémica.', answer:'grande' },
+    { text:'Também chamada circulação pulmonar.', answer:'pequena' },
+    { text:'O sangue troca gases (O2/CO2) com as células dos tecidos do corpo.', answer:'grande' },
+    { text:'O sangue troca gases (O2/CO2) com o ar, nos alvéolos pulmonares.', answer:'pequena' },
+    { text:'Termina na aurícula esquerda, já com sangue oxigenado.', answer:'pequena' },
+    { text:'Termina na aurícula direita, com sangue pobre em oxigénio.', answer:'grande' },
+  ];
+
+  const CLASSIFY_VESSELS = [
+    { text:'Transporta sangue do coração para os órgãos.', answer:'arteria' },
+    { text:'Transporta sangue dos órgãos de volta ao coração.', answer:'veia' },
+    { text:'Tem parede muscular espessa e elástica, adaptada a pressões elevadas.', answer:'arteria' },
+    { text:'Possui válvulas que impedem o retorno do sangue.', answer:'veia' },
+    { text:'A aorta é o maior exemplo deste tipo de vaso.', answer:'arteria' },
+    { text:'As veias cavas são exemplos deste tipo de vaso.', answer:'veia' },
+    { text:'O sangue circula a baixa pressão, ajudado pela contração dos músculos à volta do vaso.', answer:'veia' },
+    { text:'É neste tipo de vaso que se sente o pulso.', answer:'arteria' },
+  ];
+
+  const CLASSIFY_DC = [
+    { text:'Aumento da frequência cardíaca.', answer:'aumenta' },
+    { text:'Diminuição do volume sistólico.', answer:'diminui' },
+    { text:'Estimulação do sistema nervoso simpático.', answer:'aumenta' },
+    { text:'Estimulação do sistema nervoso parassimpático.', answer:'diminui' },
+    { text:'Aumento do retorno venoso — chega mais sangue ao coração.', answer:'aumenta' },
+    { text:'Hemorragia grave, com perda de sangue.', answer:'diminui' },
+    { text:'Libertação de adrenalina durante um esforço físico intenso.', answer:'aumenta' },
+    { text:'Repouso profundo e relaxamento total.', answer:'diminui' },
+  ];
+
+  const QUIZ_L2 = [
+    { q:'O que é a pressão sistólica?', options:['A pressão no momento em que os ventrículos se contraem','A pressão no momento em que os ventrículos relaxam','A pressão exercida dentro das veias','A pressão do ar nos pulmões'], correct:0 },
+    { q:'O pulso arterial corresponde a:', options:['O som produzido pelo coração a bater','A distensão rítmica da parede arterial provocada pela sístole ventricular','A velocidade do sangue nas veias','A pressão sanguínea nos capilares'], correct:1 },
+    { q:'Qual das seguintes NÃO é um fator que facilita o retorno venoso?', options:['Válvulas venosas','Bomba muscular','Bomba respiratória','Contração do ventrículo esquerdo do coração'], correct:3 },
+    { q:'Que componente do sangue transporta principalmente o oxigénio?', options:['Glóbulos vermelhos (eritrócitos)','Glóbulos brancos (leucócitos)','Plaquetas','Plasma'], correct:0 },
+    { q:'O que acontece, em geral, à frequência cardíaca durante o esforço físico?', options:['Aumenta, para responder às maiores necessidades de oxigénio dos músculos','Diminui sempre, para poupar energia','Mantém-se sempre exatamente igual','Só aumenta em atletas de alta competição'], correct:0 },
+    { q:'A hemóstase é o processo que permite:', options:['Produzir novos glóbulos vermelhos','Regular a temperatura do sangue','Parar uma hemorragia através da coagulação do sangue','Transportar hormonas até ao órgão-alvo'], correct:2 },
+    { q:'Um ciclista bem treinado costuma ter, em repouso, uma frequência cardíaca mais baixa do que uma pessoa sedentária. Isto deve-se sobretudo a:', options:['Um volume sistólico maior, que permite bombear mais sangue por batimento','Um coração mais pequeno','Menos glóbulos vermelhos no sangue','Válvulas venosas menos eficientes'], correct:0 },
+  ];
+
+  const CLASSIFY_ZONE = [
+    { text:'Inclui as fossas nasais, a faringe, a laringe, a traqueia e os brônquios.', answer:'condutora' },
+    { text:'Inclui os alvéolos pulmonares.', answer:'trocas' },
+    { text:'A sua função principal é conduzir, aquecer, humidificar e filtrar o ar.', answer:'condutora' },
+    { text:'É aqui que ocorre a hematose (troca de O2 e CO2).', answer:'trocas' },
+    { text:'Não participa diretamente nas trocas gasosas.', answer:'condutora' },
+    { text:'Tem paredes muito finas, rodeadas por uma rede de capilares sanguíneos.', answer:'trocas' },
+    { text:'Inclui os bronquíolos, até aos sacos alveolares.', answer:'condutora' },
+    { text:'É onde o oxigénio passa para o sangue e o dióxido de carbono sai do sangue.', answer:'trocas' },
+  ];
+
+  const CLASSIFY_MECH = [
+    { text:'Respiração normal, em repouso.', answer:'eupneica' },
+    { text:'Ocorre durante o exercício físico intenso.', answer:'forcada' },
+    { text:'Envolve principalmente o diafragma e os músculos intercostais externos.', answer:'eupneica' },
+    { text:'Envolve também os músculos intercostais internos e os músculos abdominais.', answer:'forcada' },
+    { text:'Movimenta apenas o volume corrente.', answer:'eupneica' },
+    { text:'Pode mobilizar os volumes de reserva inspiratória e expiratória.', answer:'forcada' },
+    { text:'A expiração é passiva, sem gasto muscular ativo.', answer:'eupneica' },
+    { text:'Exige participação muscular ativa tanto na inspiração como na expiração.', answer:'forcada' },
+  ];
+
+  const CLASSIFY_VENT = [
+    { text:'Aumento da frequência respiratória.', answer:'aumenta' },
+    { text:'Diminuição do volume corrente.', answer:'diminui' },
+    { text:'Esforço físico intenso.', answer:'aumenta' },
+    { text:'Repouso e relaxamento.', answer:'diminui' },
+    { text:'Acumulação de CO2 no sangue, que estimula os centros respiratórios.', answer:'aumenta' },
+    { text:'Respiração superficial e lenta.', answer:'diminui' },
+    { text:'Necessidade aumentada de O2 pelos músculos em atividade.', answer:'aumenta' },
+    { text:'Obstrução ou bloqueio parcial das vias aéreas.', answer:'diminui' },
+  ];
+
+  const QUIZ_L3 = [
+    { q:'O que é a hematose?', options:['A troca de O2 e CO2 entre o ar alveolar e o sangue','A produção de glóbulos vermelhos nos pulmões','A filtração do ar nas fossas nasais','A contração do diafragma'], correct:0 },
+    { q:'O que é a capacidade vital?', options:['O ar que fica sempre nos pulmões e nunca sai','O volume de um único ciclo respiratório normal','O volume máximo de ar mobilizado numa inspiração forçada seguida de expiração forçada','A frequência respiratória máxima possível'], correct:2 },
+    { q:'O volume residual é:', options:['O ar que fica sempre nos pulmões, mesmo após uma expiração forçada','O ar inspirado numa respiração normal','O ar extra que se consegue inspirar após uma inspiração normal','O ar total que os pulmões conseguem conter'], correct:0 },
+    { q:'O que representa o VO2 máx?', options:['O volume total dos pulmões','O consumo máximo de oxigénio que o organismo consegue utilizar durante o esforço físico','A frequência respiratória em repouso','A quantidade de CO2 expirado por minuto'], correct:1 },
+    { q:'Durante o esforço físico, o que acontece geralmente à frequência respiratória e ao volume corrente?', options:['Ambos aumentam, para elevar a ventilação pulmonar','Ambos diminuem, para poupar energia','A frequência respiratória diminui e o volume corrente aumenta','Mantêm-se sempre inalterados'], correct:0 },
+    { q:'Qual a relação entre o aparelho respiratório e o aparelho circulatório?', options:['Não têm qualquer relação direta','O respiratório fornece O2 ao sangue e remove CO2; o circulatório transporta esses gases pelo corpo','O circulatório produz o ar que o respiratório utiliza','O respiratório substitui o circulatório durante o esforço físico'], correct:1 },
+    { q:'Um nadador de elite treina a respiração para aumentar a sua capacidade vital. Isso permite-lhe:', options:['Mobilizar um maior volume de ar por ciclo respiratório','Reduzir a frequência cardíaca a zero','Eliminar a necessidade de oxigénio','Aumentar apenas a frequência respiratória, sem mudar o volume'], correct:0 },
+  ];
+
+  const CLASSIFY_NUTRIENTS = [
+    { text:'Hidratos de carbono.', answer:'macro' },
+    { text:'Lípidos.', answer:'macro' },
+    { text:'Proteínas.', answer:'macro' },
+    { text:'Sais minerais (ex: Ca2+, Na+, K+, Fe2+).', answer:'micro' },
+    { text:'Vitaminas.', answer:'micro' },
+    { text:'É necessário em grande quantidade na dieta diária.', answer:'macro' },
+    { text:'É necessário apenas em pequenas quantidades, mas essencial ao bom funcionamento do organismo.', answer:'micro' },
+    { text:'Fornece a maior parte da energia (calorias) da dieta.', answer:'macro' },
+  ];
+
+  const CLASSIFY_TUBE = [
+    { text:'Boca.', answer:'tubo' },
+    { text:'Esófago.', answer:'tubo' },
+    { text:'Estômago.', answer:'tubo' },
+    { text:'Intestino delgado.', answer:'tubo' },
+    { text:'Intestino grosso.', answer:'tubo' },
+    { text:'Fígado.', answer:'anexo' },
+    { text:'Pâncreas.', answer:'anexo' },
+    { text:'Glândulas salivares.', answer:'anexo' },
+  ];
+
+  const QUIZ_L4 = [
+    { q:'Qual a ordem correta das atividades do aparelho digestivo?', options:['Ingestão → Digestão → Condução → Absorção → Armazenamento → Eliminação','Digestão → Ingestão → Absorção → Condução → Eliminação → Armazenamento','Absorção → Ingestão → Digestão → Eliminação → Condução → Armazenamento','Ingestão → Absorção → Digestão → Condução → Eliminação → Armazenamento'], correct:0 },
+    { q:'O que é a "ingestão"?', options:['A entrada dos alimentos no tubo digestivo, através da boca','A passagem dos nutrientes para o sangue','A eliminação dos resíduos não digeridos','A transformação química dos alimentos'], correct:0 },
+    { q:'O que é a "absorção"?', options:['A entrada do alimento na boca','A passagem dos nutrientes do tubo digestivo para o sangue','A eliminação das fezes','O armazenamento de energia no fígado'], correct:1 },
+    { q:'Qual é a principal função dos rins?', options:['Produzir hormonas digestivas','Armazenar os nutrientes absorvidos','Filtrar o sangue e produzir urina, eliminando substâncias em excesso ou tóxicas','Triturar mecanicamente os alimentos'], correct:2 },
+    { q:'O aparelho excretor é responsável por:', options:['Produzir enzimas digestivas','Absorver vitaminas lipossolúveis','Contrair os músculos do tubo digestivo','Eliminar do organismo substâncias que já não são necessárias, como a urina'], correct:3 },
+    { q:'Que órgão produz a bílis, importante para a digestão dos lípidos?', options:['Fígado','Pâncreas','Estômago','Intestino grosso'], correct:0 },
+    { q:'Antes de uma maratona, os atletas costumam fazer uma refeição rica em hidratos de carbono. A razão principal é:', options:['Aumentar as reservas de energia disponíveis para o esforço prolongado','Facilitar a eliminação urinária','Reduzir a absorção de água','Diminuir a necessidade de vitaminas'], correct:0 },
+  ];
+
+  const CLASSIFY_TEMP = [
+    { text:'Vasodilatação periférica (os vasos sanguíneos da pele dilatam).', answer:'hiper' },
+    { text:'Vasoconstrição periférica (os vasos sanguíneos da pele contraem).', answer:'hipo' },
+    { text:'Aumento da sudorese (transpiração).', answer:'hiper' },
+    { text:'Arrepio e tremor muscular (tiritar).', answer:'hipo' },
+    { text:'Comportamento voluntário: procurar a sombra ou beber água fresca.', answer:'hiper' },
+    { text:'Comportamento voluntário: vestir mais roupa ou procurar abrigo.', answer:'hipo' },
+    { text:'O corpo tenta perder calor para o ambiente.', answer:'hiper' },
+    { text:'O corpo tenta reter e produzir mais calor.', answer:'hipo' },
+  ];
+
+  const CLASSIFY_HIDRICO = [
+    { text:'Deteta alterações na concentração de solutos no sangue (osmolaridade).', answer:'osmo' },
+    { text:'Deteta alterações no volume de sangue e líquidos circulantes.', answer:'volume' },
+    { text:'Está muito relacionado com o mecanismo da sede.', answer:'osmo' },
+    { text:'Pode ser ativado, por exemplo, após uma hemorragia significativa.', answer:'volume' },
+    { text:'Localiza-se sobretudo no hipotálamo, sensível à concentração do plasma.', answer:'osmo' },
+    { text:'Localiza-se em zonas como as aurículas do coração e os grandes vasos.', answer:'volume' },
+    { text:'É ativado quando bebemos pouca água e o sangue fica mais concentrado.', answer:'osmo' },
+    { text:'É ativado quando há perda de volume de líquidos, como em vómitos ou diarreia intensa.', answer:'volume' },
+  ];
+
+  const QUIZ_L5 = [
+    { q:'Qual é, em geral, a temperatura corporal central de referência no ser humano?', options:['Aproximadamente 37°C','Aproximadamente 30°C','Aproximadamente 42°C','Aproximadamente 25°C'], correct:0 },
+    { q:'Qual destas NÃO é uma forma de transferência de calor entre o corpo e o ambiente?', options:['Condução','Convecção','Radiação','Digestão'], correct:3 },
+    { q:'A evaporação do suor ajuda o corpo a:', options:['Ganhar calor rapidamente','Perder calor, arrefecendo a pele','Reter mais água','Aumentar a frequência cardíaca'], correct:1 },
+    { q:'O que desencadeia o mecanismo da sede?', options:['A diminuição da temperatura corporal','O aumento da frequência respiratória','O aumento da osmolaridade do sangue ou a diminuição do volume de líquidos corporais','A contração do músculo cardíaco'], correct:2 },
+    { q:'Numa situação de hipertermia (temperatura corporal elevada), o corpo tende a:', options:['Vasodilatar e transpirar, para perder calor','Vasoconstringir e tremer, para reter calor','Parar de produzir urina','Aumentar a digestão'], correct:0 },
+    { q:'Porque é importante regular o equilíbrio hídrico e eletrolítico?', options:['Apenas para controlar a temperatura corporal','Apenas para regular a digestão','Para manter o volume e a composição dos líquidos corporais compatíveis com a vida','Não tem influência no funcionamento do organismo'], correct:2 },
+    { q:'Durante uma prova de longa duração ao sol, um atleta deve beber água regularmente sobretudo para:', options:['Repor os líquidos perdidos pela sudorese e evitar a desidratação','Aumentar a temperatura corporal','Reduzir a frequência cardíaca a zero','Impedir a vasodilatação'], correct:0 },
+  ];
+
+  // ===== ESTADO GERAL =====
+  let state = { status: { 1:'unlocked', 2:'locked', 3:'locked', 4:'locked', 5:'locked' } };
+  let currentAttempt = null; // { levelId, student, stats:{correct,total}, exitCount, startTime, restart() }
+  let examHiddenSince = null;
+
+  // ===== REFERÊNCIAS DOM =====
+  const progressPath = document.getElementById('progress-path');
+  const levelScreen = document.getElementById('level-screen');
+  const levelEyebrow = document.getElementById('level-eyebrow');
+  const levelTitle = document.getElementById('level-title');
+  const levelContentEl = document.getElementById('level-content');
+  const backBtn = document.getElementById('back-btn');
+  const codeInput = document.getElementById('code-input');
+  const codeSubmitBtn = document.getElementById('code-submit-btn');
+  const codeMsg = document.getElementById('code-msg');
+  const warningOverlay = document.getElementById('warning-overlay');
+  const restartOverlay = document.getElementById('restart-overlay');
+
+  const pathLength = progressPath.getTotalLength();
+  progressPath.style.strokeDasharray = pathLength;
+
+  function renderMap(){
+    const completedCount = Object.values(state.status).filter(s => s === 'completed').length;
+    const revealed = pathLength * (completedCount / LEVELS.length);
+    progressPath.style.strokeDashoffset = pathLength - revealed;
+
+    document.querySelectorAll('.node').forEach(node => {
+      const lvl = Number(node.dataset.level);
+      node.classList.remove('locked','unlocked','completed');
+      node.classList.add(state.status[lvl]);
+      node.setAttribute('aria-disabled', state.status[lvl] === 'locked');
+    });
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function formatTime(totalSeconds){
+    const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const s = String(totalSeconds % 60).padStart(2, '0');
+    return m + ':' + s;
+  }
+
+  // ===== CÓDIGO DE DESBLOQUEIO =====
+  codeSubmitBtn.addEventListener('click', () => {
+    const val = codeInput.value.trim().toUpperCase();
+    if(val === DAILY_CODE.toUpperCase()){
+      Object.keys(state.status).forEach(id => {
+        if(state.status[id] === 'locked') state.status[id] = 'unlocked';
+      });
+      renderMap();
+      codeMsg.textContent = 'Código aceite! Todos os níveis foram desbloqueados.';
+      codeMsg.className = 'code-msg ok';
+    } else {
+      codeMsg.textContent = 'Código incorreto.';
+      codeMsg.className = 'code-msg bad';
+    }
+  });
+
+  // ===== ABRIR NÍVEL (mostra sempre a identificação primeiro) =====
+  function openLevel(id){
+    if(state.status[id] === 'locked') return;
+    const lvl = LEVELS.find(l => l.id === id);
+    levelEyebrow.textContent = 'NÍVEL ' + id;
+    levelTitle.textContent = lvl.name;
+    levelScreen.classList.add('open');
+    showIdentificationForm(id);
+  }
+
+  function closeLevel(){
+    levelScreen.classList.remove('open');
+    currentAttempt = null;
+  }
+  backBtn.addEventListener('click', closeLevel);
+
+  function showIdentificationForm(id){
+    levelContentEl.innerHTML = `
+      <div class="id-form">
+        <p class="stage-progress">Antes de começares, identifica-te.</p>
+        <label for="id-nome">Nome</label>
+        <input type="text" id="id-nome" autocomplete="off">
+        <label for="id-turma">Turma</label>
+        <input type="text" id="id-turma" autocomplete="off">
+        <label for="id-numero">Número</label>
+        <input type="text" id="id-numero" autocomplete="off" inputmode="numeric">
+        <div class="id-error" id="id-error"></div>
+        <button class="complete-btn" id="id-start-btn" style="margin-top:8px;">Começar Nível</button>
+      </div>
+    `;
+    document.getElementById('id-start-btn').addEventListener('click', () => {
+      const nome = document.getElementById('id-nome').value.trim();
+      const turma = document.getElementById('id-turma').value.trim();
+      const numero = document.getElementById('id-numero').value.trim();
+      const errorEl = document.getElementById('id-error');
+      if(!nome || !turma || !numero){
+        errorEl.textContent = 'Preenche o nome, a turma e o número antes de começar.';
+        return;
+      }
+      startLevelAttempt(id, { nome, turma, numero });
+    });
+  }
+
+  // ===== INICIAR / REINICIAR TENTATIVA =====
+  function startLevelAttempt(id, student){
+    currentAttempt = {
+      levelId: id,
+      student: student,
+      stats: { correct: 0, total: 0 },
+      exitCount: 0,
+      startTime: Date.now(),
+      timerInterval: null,
+    };
+    startAttemptTimer();
+    runLevelFlow(id);
+  }
+
+  function restartCurrentAttempt(){
+    if(!currentAttempt) return;
+    const { levelId, student } = currentAttempt;
+    clearInterval(currentAttempt.timerInterval);
+    startLevelAttempt(levelId, student);
+  }
+
+  function startAttemptTimer(){
+    clearInterval(currentAttempt.timerInterval);
+    currentAttempt.timerInterval = setInterval(() => {
+      const el = document.getElementById('attempt-timer');
+      if(el){
+        const elapsed = Math.floor((Date.now() - currentAttempt.startTime) / 1000);
+        el.textContent = '⏱ ' + formatTime(elapsed);
+      }
+    }, 1000);
+  }
+
+  function renderAttemptStatus(){
+    return `
+      <div class="attempt-status">
+        <span class="exits" id="attempt-exits">Saídas: ${currentAttempt.exitCount}</span>
+        <span class="timer" id="attempt-timer">⏱ 00:00</span>
+      </div>
+    `;
+  }
+
+  // ===== DETEÇÃO DE SAÍDAS DO SEPARADOR =====
+  document.addEventListener('visibilitychange', () => {
+    if(!currentAttempt) return;
+    if(document.visibilityState === 'hidden'){
+      examHiddenSince = Date.now();
+    } else if(document.visibilityState === 'visible' && examHiddenSince !== null){
+      examHiddenSince = null;
+      handleTabReturn();
+    }
+  });
+
+  function handleTabReturn(){
+    if(!currentAttempt) return;
+    currentAttempt.exitCount++;
+    const el = document.getElementById('attempt-exits');
+    if(el) el.textContent = 'Saídas: ' + currentAttempt.exitCount;
+
+    if(currentAttempt.exitCount === 2){
+      warningOverlay.classList.add('open');
+    } else if(currentAttempt.exitCount >= 3){
+      restartOverlay.classList.add('open');
+    }
+  }
+
+  document.getElementById('warning-ok-btn').addEventListener('click', () => {
+    warningOverlay.classList.remove('open');
+  });
+  document.getElementById('restart-ok-btn').addEventListener('click', () => {
+    restartOverlay.classList.remove('open');
+    restartCurrentAttempt();
+  });
+
+  // ===== ESTÁGIOS PARTILHADOS (com contabilização de pontuação) =====
+  function runClassifyStage(items, labelA, labelB, keyA, keyB, title, onDone){
+    const deck = shuffle(items);
+    let idx = 0;
+    let score = 0;
+    renderCard();
+
+    function renderCard(){
+      if(idx >= deck.length){ finishStage(); return; }
+      const item = deck[idx];
+      levelContentEl.innerHTML = renderAttemptStatus() + `
+        <div class="stage-title">${title}</div>
+        <div class="stage-progress">Item ${idx + 1} / ${deck.length}</div>
+        <div class="flash-card">${item.text}</div>
+        <div class="flash-btns">
+          <button class="opt-btn" data-choice="${keyA}">${labelA}</button>
+          <button class="opt-btn" data-choice="${keyB}">${labelB}</button>
+        </div>
+        <div class="flash-feedback" id="flash-feedback"></div>
+      `;
+      const buttons = levelContentEl.querySelectorAll('.opt-btn');
+      buttons.forEach(b => {
+        b.addEventListener('click', () => {
+          const feedback = document.getElementById('flash-feedback');
+          buttons.forEach(x => x.disabled = true);
+          if(b.dataset.choice === item.answer){
+            score++;
+            b.classList.add('correct');
+            feedback.textContent = 'Certo! ✅';
+            feedback.className = 'flash-feedback ok';
+          } else {
+            b.classList.add('wrong');
+            const correctLabel = item.answer === keyA ? labelA : labelB;
+            buttons.forEach(x => { if(x.dataset.choice === item.answer) x.classList.add('correct'); });
+            feedback.textContent = 'Não é bem isso — a resposta certa era "' + correctLabel + '".';
+            feedback.className = 'flash-feedback bad';
+          }
+          setTimeout(() => { idx++; renderCard(); }, 900);
+        });
+      });
+    }
+
+    function finishStage(){
+      currentAttempt.stats.correct += score;
+      currentAttempt.stats.total += deck.length;
+      onDone();
+    }
+  }
+
+  function runQuizStage(questions, title, onDone, timeSeconds){
+    const total = timeSeconds || 60;
+    const deck = shuffle(questions);
+    let idx = 0;
+    let score = 0;
+    let timeLeft = total;
+    let quizTimerId = null;
+
+    levelContentEl.innerHTML = renderAttemptStatus() + `
+      <div class="stage-title">${title}</div>
+      <div class="stage-progress">Tens ${total} segundos para responder a ${deck.length} perguntas.</div>
+      <button class="complete-btn" id="start-quiz-btn" style="margin-top:16px;">Começar</button>
+    `;
+    document.getElementById('start-quiz-btn').addEventListener('click', () => {
+      quizTimerId = setInterval(() => {
+        timeLeft--;
+        const el = document.getElementById('quiz-timer');
+        if(el) el.textContent = '⏱ ' + timeLeft + 's';
+        if(timeLeft <= 0){ clearInterval(quizTimerId); finishQuiz(); }
+      }, 1000);
+      renderQuestion();
+    });
+
+    function renderQuestion(){
+      if(idx >= deck.length){ clearInterval(quizTimerId); finishQuiz(); return; }
+      const q = deck[idx];
+      levelContentEl.innerHTML = renderAttemptStatus() + `
+        <div class="quiz-timer" id="quiz-timer">⏱ ${timeLeft}s</div>
+        <div class="stage-progress">Pergunta ${idx + 1} / ${deck.length}</div>
+        <div class="flash-card">${q.q}</div>
+        <div class="quiz-options">
+          ${q.options.map((opt, i) => `<button class="opt-btn quiz-opt" data-i="${i}">${opt}</button>`).join('')}
+        </div>
+      `;
+      levelContentEl.querySelectorAll('.quiz-opt').forEach(b => {
+        b.addEventListener('click', () => {
+          const opts = levelContentEl.querySelectorAll('.quiz-opt');
+          opts.forEach(x => x.disabled = true);
+          const i = Number(b.dataset.i);
+          if(i === q.correct){ score++; b.classList.add('correct'); }
+          else { b.classList.add('wrong'); opts[q.correct].classList.add('correct'); }
+          setTimeout(() => { idx++; renderQuestion(); }, 700);
+        });
+      });
+    }
+
+    function finishQuiz(){
+      currentAttempt.stats.correct += score;
+      currentAttempt.stats.total += deck.length;
+      onDone();
+    }
+  }
+
+  // ===== FLUXO POR NÍVEL =====
+  function runLevelFlow(id){
+    let stage = 0;
+    showStage();
+
+    function showStage(){
+      if(id === 1){
+        if(stage === 0){ runClassifyStage(CLASSIFY_NE, 'Nervosa', 'Endócrina', 'nervosa', 'endocrina', 'Parte 1 de 3 — Nervosa vs Endócrina', () => { stage = 1; showStage(); }); return; }
+        if(stage === 1){ runClassifyStage(CLASSIFY_SP, 'Simpático', 'Parassimpático', 'simpatico', 'parassimpatico', 'Parte 2 de 3 — Simpático vs Parassimpático', () => { stage = 2; showStage(); }); return; }
+        if(stage === 2){ runQuizStage(QUIZ_L1, 'Parte 3 de 3 — Quiz Cronometrado', () => { stage = 3; showStage(); }, 60); return; }
+      } else if(id === 2){
+        if(stage === 0){ runClassifyStage(CLASSIFY_CIRC, 'Grande Circulação', 'Pequena Circulação', 'grande', 'pequena', 'Parte 1 de 4 — Grande vs Pequena Circulação', () => { stage = 1; showStage(); }); return; }
+        if(stage === 1){ runClassifyStage(CLASSIFY_VESSELS, 'Artéria', 'Veia', 'arteria', 'veia', 'Parte 2 de 4 — Artérias vs Veias', () => { stage = 2; showStage(); }); return; }
+        if(stage === 2){ runClassifyStage(CLASSIFY_DC, 'Aumenta', 'Diminui', 'aumenta', 'diminui', 'Parte 3 de 4 — O que Aumenta ou Diminui o Débito Cardíaco?', () => { stage = 3; showStage(); }); return; }
+        if(stage === 3){ runQuizStage(QUIZ_L2, 'Parte 4 de 4 — Quiz Cronometrado', () => { stage = 4; showStage(); }, 75); return; }
+      } else if(id === 3){
+        if(stage === 0){ runClassifyStage(CLASSIFY_ZONE, 'Zona Condutora', 'Zona de Trocas', 'condutora', 'trocas', 'Parte 1 de 4 — Zona Condutora vs Zona de Trocas Gasosas', () => { stage = 1; showStage(); }); return; }
+        if(stage === 1){ runClassifyStage(CLASSIFY_MECH, 'Eupneica', 'Forçada', 'eupneica', 'forcada', 'Parte 2 de 4 — Respiração Eupneica vs Forçada', () => { stage = 2; showStage(); }); return; }
+        if(stage === 2){ runClassifyStage(CLASSIFY_VENT, 'Aumenta', 'Diminui', 'aumenta', 'diminui', 'Parte 3 de 4 — O que Aumenta ou Diminui a Ventilação Pulmonar?', () => { stage = 3; showStage(); }); return; }
+        if(stage === 3){ runQuizStage(QUIZ_L3, 'Parte 4 de 4 — Quiz Cronometrado', () => { stage = 4; showStage(); }, 75); return; }
+      } else if(id === 4){
+        if(stage === 0){ runClassifyStage(CLASSIFY_NUTRIENTS, 'Macronutriente', 'Micronutriente', 'macro', 'micro', 'Parte 1 de 3 — Macronutrientes vs Micronutrientes', () => { stage = 1; showStage(); }); return; }
+        if(stage === 1){ runClassifyStage(CLASSIFY_TUBE, 'Tubo Digestivo', 'Órgão Anexo', 'tubo', 'anexo', 'Parte 2 de 3 — Tubo Digestivo vs Órgãos Anexos', () => { stage = 2; showStage(); }); return; }
+        if(stage === 2){ runQuizStage(QUIZ_L4, 'Parte 3 de 3 — Quiz Cronometrado', () => { stage = 3; showStage(); }, 75); return; }
+      } else if(id === 5){
+        if(stage === 0){ runClassifyStage(CLASSIFY_TEMP, 'Hipertermia', 'Hipotermia', 'hiper', 'hipo', 'Parte 1 de 3 — Respostas à Hipertermia vs Hipotermia', () => { stage = 1; showStage(); }); return; }
+        if(stage === 1){ runClassifyStage(CLASSIFY_HIDRICO, 'Recetor de Osmolaridade', 'Recetor de Volume', 'osmo', 'volume', 'Parte 2 de 3 — Recetores de Osmolaridade vs de Volume', () => { stage = 2; showStage(); }); return; }
+        if(stage === 2){ runQuizStage(QUIZ_L5, 'Parte 3 de 3 — Quiz Cronometrado', () => { stage = 3; showStage(); }, 75); return; }
+      }
+      showResults(id);
+    }
+  }
+
+  // ===== RESULTADOS E ENVIO =====
+  function showResults(id){
+    clearInterval(currentAttempt.timerInterval);
+    const elapsedSeconds = Math.floor((Date.now() - currentAttempt.startTime) / 1000);
+    const pct = Math.round((currentAttempt.stats.correct / currentAttempt.stats.total) * 100);
+
+    levelContentEl.innerHTML = `
+      <div class="placeholder-card" style="border-style:solid;border-color:var(--ok);color:var(--text);">
+        Nível concluído! Aqui está o teu resultado.
+      </div>
+      <div class="results-grid">
+        <div class="cell"><div class="value">${currentAttempt.stats.correct}/${currentAttempt.stats.total}</div><div class="label">Respostas certas</div></div>
+        <div class="cell"><div class="value">${pct}%</div><div class="label">Percentagem</div></div>
+        <div class="cell"><div class="value">${formatTime(elapsedSeconds)}</div><div class="label">Tempo total</div></div>
+        <div class="cell"><div class="value">${currentAttempt.exitCount}</div><div class="label">Saídas do separador</div></div>
+      </div>
+      <button class="complete-btn" id="send-results-btn" style="margin-top:18px;">Enviar Resultado</button>
+      <div class="id-error" id="send-status"></div>
+    `;
+
+    document.getElementById('send-results-btn').addEventListener('click', () => {
+      const sendBtn = document.getElementById('send-results-btn');
+      const statusEl = document.getElementById('send-status');
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'A enviar...';
+
+      const payload = {
+        nome: currentAttempt.student.nome,
+        turma: currentAttempt.student.turma,
+        numeroAluno: currentAttempt.student.numero,
+        nivel: id + ' - ' + LEVELS.find(l => l.id === id).name,
+        pontuacao: currentAttempt.stats.correct + '/' + currentAttempt.stats.total,
+        percentagem: pct + '%',
+        tempoTotal: formatTime(elapsedSeconds),
+        saidas: currentAttempt.exitCount,
+      };
+
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      })
+      .then(() => {
+        sendBtn.textContent = 'Enviado ✅';
+        statusEl.style.color = 'var(--ok)';
+        statusEl.textContent = 'Resultado enviado com sucesso.';
+        state.status[id] = 'completed';
+        renderMap();
+        const backToMapBtn = document.createElement('button');
+        backToMapBtn.className = 'complete-btn';
+        backToMapBtn.style.marginTop = '10px';
+        backToMapBtn.textContent = 'Voltar ao mapa';
+        backToMapBtn.addEventListener('click', closeLevel);
+        levelContentEl.appendChild(backToMapBtn);
+      })
+      .catch(() => {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Tentar enviar novamente';
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = 'Não foi possível enviar. Verifica a ligação à internet e tenta novamente.';
+      });
+    });
+  }
+
+  // ===== EVENTOS DO MAPA =====
+  document.querySelectorAll('.node').forEach(node => {
+    const lvl = Number(node.dataset.level);
+    node.addEventListener('click', () => openLevel(lvl));
+    node.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openLevel(lvl); }
+    });
+  });
+
+  renderMap();
+</script>
+
+</body>
+</html>
