@@ -228,6 +228,7 @@
   .quiz-options{ display:flex; flex-direction:column; gap:10px; }
   .quiz-opt.correct, .opt-btn.correct{ border-color:var(--ok) !important; color:var(--ok) !important; }
   .quiz-opt.wrong, .opt-btn.wrong{ border-color:var(--danger) !important; color:var(--danger) !important; }
+  .quiz-opt.selected, .opt-btn.selected{ border-color:var(--violet) !important; background:var(--bg-1); }
 
   .placeholder-card{
     border:1px dashed var(--locked); border-radius:14px; padding:22px;
@@ -380,7 +381,7 @@
 
 <script>
   // ===== CONFIGURAÇÃO =====
-  const DAILY_CODE = 'AGORA2026'; // muda este código antes de cada dia de prova
+  const DAILY_CODE = 'PROVA2026'; // muda este código antes de cada dia de prova
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHAsWJCo5vv5QVajCKuX69VAeYjYdrOAHGCtPz3EZqX5R-1h7KBAT5C3r0Pv3YJ8D6/exec';
   const MIN_ANSWER_DELAY_MS = 2500; // tempo mínimo antes de poder responder a cada pergunta
   const FLAG_SECONDS_PER_ITEM = 3; // abaixo disto, sinaliza como possível resposta ao calhas
@@ -788,22 +789,17 @@
 
       function paint(){
         buttons.forEach(b => {
-          b.classList.remove('correct','wrong');
-          if(answers[idx] !== null){
-            if(b.dataset.choice === item.answer) b.classList.add('correct');
-            if(b.dataset.choice === answers[idx] && answers[idx] !== item.answer) b.classList.add('wrong');
+          b.classList.remove('selected');
+          if(answers[idx] !== null && b.dataset.choice === answers[idx]){
+            b.classList.add('selected');
           }
         });
         if(answers[idx] === null){
           feedback.textContent = '';
           feedback.className = 'flash-feedback';
-        } else if(answers[idx] === item.answer){
-          feedback.textContent = 'Certo! ✅';
-          feedback.className = 'flash-feedback ok';
         } else {
-          const correctLabel = item.answer === keyA ? labelA : labelB;
-          feedback.textContent = 'Resposta certa: "' + correctLabel + '".';
-          feedback.className = 'flash-feedback bad';
+          feedback.textContent = 'Resposta registada.';
+          feedback.className = 'flash-feedback';
         }
       }
       paint();
@@ -884,10 +880,9 @@
 
       function paint(){
         opts.forEach((b, i) => {
-          b.classList.remove('correct','wrong');
-          if(answers[idx] !== null){
-            if(i === q.correct) b.classList.add('correct');
-            if(i === answers[idx] && answers[idx] !== q.correct) b.classList.add('wrong');
+          b.classList.remove('selected');
+          if(answers[idx] !== null && i === answers[idx]){
+            b.classList.add('selected');
           }
         });
       }
