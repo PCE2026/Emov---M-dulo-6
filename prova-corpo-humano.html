@@ -210,6 +210,8 @@
     min-height:60px; display:flex; align-items:center;
   }
   .flash-btns{ display:flex; gap:10px; }
+  .nav-row{ display:flex; gap:10px; margin-top:14px; }
+  .nav-row .opt-btn{ flex:0 0 auto; min-width:110px; }
   .opt-btn{
     flex:1; background:var(--bg-1); border:1px solid var(--locked); color:var(--text);
     border-radius:10px; padding:13px 10px; font-family:'Inter',sans-serif;
@@ -380,6 +382,8 @@
   // ===== CONFIGURAÇÃO =====
   const DAILY_CODE = 'PROVA2026'; // muda este código antes de cada dia de prova
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHAsWJCo5vv5QVajCKuX69VAeYjYdrOAHGCtPz3EZqX5R-1h7KBAT5C3r0Pv3YJ8D6/exec';
+  const MIN_ANSWER_DELAY_MS = 2500; // tempo mínimo antes de poder responder a cada pergunta
+  const FLAG_SECONDS_PER_ITEM = 3; // abaixo disto, sinaliza como possível resposta ao calhas
 
   // ===== DADOS DE CONTEÚDO (iguais ao jogo de treino) =====
   const LEVELS = [
@@ -755,13 +759,14 @@
   // ===== ESTÁGIOS PARTILHADOS (com contabilização de pontuação) =====
   function runClassifyStage(items, labelA, labelB, keyA, keyB, title, onDone){
     const deck = shuffle(items);
+    const answers = new Array(deck.length).fill(null);
+    const visited = new Array(deck.length).fill(false);
     let idx = 0;
-    let score = 0;
     renderCard();
 
     function renderCard(){
-      if(idx >= deck.length){ finishStage(); return; }
       const item = deck[idx];
+      const firstView = !visited[idx];
       levelContentEl.innerHTML = renderAttemptStatus() + `
         <div class="stage-title">${title}</div>
         <div class="stage-progress">Item ${idx + 1} / ${deck.length}</div>
@@ -771,30 +776,65 @@
           <button class="opt-btn" data-choice="${keyB}">${labelB}</button>
         </div>
         <div class="flash-feedback" id="flash-feedback"></div>
+        <div class="nav-row">
+          <button class="opt-btn" id="prev-item-btn" ${idx === 0 ? 'disabled' : ''}>← Anterior</button>
+          <button class="complete-btn" id="next-item-btn" style="flex:1;">${idx === deck.length - 1 ? 'Concluir Parte' : 'Seguinte →'}</button>
+        </div>
       `;
-      const buttons = levelContentEl.querySelectorAll('.opt-btn');
+      const buttons = levelContentEl.querySelectorAll('.flash-btns .opt-btn');
+      const feedback = document.getElementById('flash-feedback');
+      const prevBtn = document.getElementById('prev-item-btn');
+      const nextBtn = document.getElementById('next-item-btn');
+
+      function paint(){
+        buttons.forEach(b => {
+          b.classList.remove('correct','wrong');
+          if(answers[idx] !== null){
+            if(b.dataset.choice === item.answer) b.classList.add('correct');
+            if(b.dataset.choice === answers[idx] && answers[idx] !== item.answer) b.classList.add('wrong');
+          }
+        });
+        if(answers[idx] === null){
+          feedback.textContent = '';
+          feedback.className = 'flash-feedback';
+        } else if(answers[idx] === item.answer){
+          feedback.textContent = 'Certo! ✅';
+          feedback.className = 'flash-feedback ok';
+        } else {
+          const correctLabel = item.answer === keyA ? labelA : labelB;
+          feedback.textContent = 'Resposta certa: "' + correctLabel + '".';
+          feedback.className = 'flash-feedback bad';
+        }
+      }
+      paint();
+
       buttons.forEach(b => {
         b.addEventListener('click', () => {
-          const feedback = document.getElementById('flash-feedback');
-          buttons.forEach(x => x.disabled = true);
-          if(b.dataset.choice === item.answer){
-            score++;
-            b.classList.add('correct');
-            feedback.textContent = 'Certo! ✅';
-            feedback.className = 'flash-feedback ok';
-          } else {
-            b.classList.add('wrong');
-            const correctLabel = item.answer === keyA ? labelA : labelB;
-            buttons.forEach(x => { if(x.dataset.choice === item.answer) x.classList.add('correct'); });
-            feedback.textContent = 'Não é bem isso — a resposta certa era "' + correctLabel + '".';
-            feedback.className = 'flash-feedback bad';
-          }
-          setTimeout(() => { idx++; renderCard(); }, 900);
+          answers[idx] = b.dataset.choice;
+          paint();
         });
       });
+
+      prevBtn.addEventListener('click', () => { idx--; renderCard(); });
+      nextBtn.addEventListener('click', () => {
+        if(idx < deck.length - 1){ idx++; renderCard(); }
+        else { finishStage(); }
+      });
+
+      if(firstView){
+        buttons.forEach(b => { b.disabled = true; });
+        nextBtn.disabled = true;
+        setTimeout(() => {
+          visited[idx] = true;
+          buttons.forEach(b => { b.disabled = false; });
+          nextBtn.disabled = false;
+        }, MIN_ANSWER_DELAY_MS);
+      }
     }
 
     function finishStage(){
+      let score = 0;
+      deck.forEach((item, i) => { if(answers[i] === item.answer) score++; });
       currentAttempt.stats.correct += score;
       currentAttempt.stats.total += deck.length;
       onDone();
@@ -804,14 +844,15 @@
   function runQuizStage(questions, title, onDone, timeSeconds){
     const total = timeSeconds || 60;
     const deck = shuffle(questions);
+    const answers = new Array(deck.length).fill(null);
+    const visited = new Array(deck.length).fill(false);
     let idx = 0;
-    let score = 0;
     let timeLeft = total;
     let quizTimerId = null;
 
     levelContentEl.innerHTML = renderAttemptStatus() + `
       <div class="stage-title">${title}</div>
-      <div class="stage-progress">Tens ${total} segundos para responder a ${deck.length} perguntas.</div>
+      <div class="stage-progress">Tens ${total} segundos no total para responder a ${deck.length} perguntas. Podes navegar entre perguntas e mudar respostas até concluíres.</div>
       <button class="complete-btn" id="start-quiz-btn" style="margin-top:16px;">Começar</button>
     `;
     document.getElementById('start-quiz-btn').addEventListener('click', () => {
@@ -825,8 +866,8 @@
     });
 
     function renderQuestion(){
-      if(idx >= deck.length){ clearInterval(quizTimerId); finishQuiz(); return; }
       const q = deck[idx];
+      const firstView = !visited[idx];
       levelContentEl.innerHTML = renderAttemptStatus() + `
         <div class="quiz-timer" id="quiz-timer">⏱ ${timeLeft}s</div>
         <div class="stage-progress">Pergunta ${idx + 1} / ${deck.length}</div>
@@ -834,20 +875,53 @@
         <div class="quiz-options">
           ${q.options.map((opt, i) => `<button class="opt-btn quiz-opt" data-i="${i}">${opt}</button>`).join('')}
         </div>
+        <div class="nav-row">
+          <button class="opt-btn" id="prev-item-btn" ${idx === 0 ? 'disabled' : ''}>← Anterior</button>
+          <button class="complete-btn" id="next-item-btn" style="flex:1;">${idx === deck.length - 1 ? 'Concluir Parte' : 'Seguinte →'}</button>
+        </div>
       `;
-      levelContentEl.querySelectorAll('.quiz-opt').forEach(b => {
+      const opts = levelContentEl.querySelectorAll('.quiz-opt');
+      const prevBtn = document.getElementById('prev-item-btn');
+      const nextBtn = document.getElementById('next-item-btn');
+
+      function paint(){
+        opts.forEach((b, i) => {
+          b.classList.remove('correct','wrong');
+          if(answers[idx] !== null){
+            if(i === q.correct) b.classList.add('correct');
+            if(i === answers[idx] && answers[idx] !== q.correct) b.classList.add('wrong');
+          }
+        });
+      }
+      paint();
+
+      opts.forEach((b, i) => {
         b.addEventListener('click', () => {
-          const opts = levelContentEl.querySelectorAll('.quiz-opt');
-          opts.forEach(x => x.disabled = true);
-          const i = Number(b.dataset.i);
-          if(i === q.correct){ score++; b.classList.add('correct'); }
-          else { b.classList.add('wrong'); opts[q.correct].classList.add('correct'); }
-          setTimeout(() => { idx++; renderQuestion(); }, 700);
+          answers[idx] = i;
+          paint();
         });
       });
+
+      prevBtn.addEventListener('click', () => { idx--; renderQuestion(); });
+      nextBtn.addEventListener('click', () => {
+        if(idx < deck.length - 1){ idx++; renderQuestion(); }
+        else { clearInterval(quizTimerId); finishQuiz(); }
+      });
+
+      if(firstView){
+        opts.forEach(b => { b.disabled = true; });
+        nextBtn.disabled = true;
+        setTimeout(() => {
+          visited[idx] = true;
+          opts.forEach(b => { b.disabled = false; });
+          nextBtn.disabled = false;
+        }, MIN_ANSWER_DELAY_MS);
+      }
     }
 
     function finishQuiz(){
+      let score = 0;
+      deck.forEach((q, i) => { if(answers[i] === q.correct) score++; });
       currentAttempt.stats.correct += score;
       currentAttempt.stats.total += deck.length;
       onDone();
@@ -892,6 +966,7 @@
     clearInterval(currentAttempt.timerInterval);
     const elapsedSeconds = Math.floor((Date.now() - currentAttempt.startTime) / 1000);
     const pct = Math.round((currentAttempt.stats.correct / currentAttempt.stats.total) * 100);
+    const nota = ((currentAttempt.stats.correct / currentAttempt.stats.total) * 20).toFixed(1);
 
     levelContentEl.innerHTML = `
       <div class="placeholder-card" style="border-style:solid;border-color:var(--ok);color:var(--text);">
@@ -899,7 +974,7 @@
       </div>
       <div class="results-grid">
         <div class="cell"><div class="value">${currentAttempt.stats.correct}/${currentAttempt.stats.total}</div><div class="label">Respostas certas</div></div>
-        <div class="cell"><div class="value">${pct}%</div><div class="label">Percentagem</div></div>
+        <div class="cell"><div class="value">${nota}/20</div><div class="label">Nota (0-20)</div></div>
         <div class="cell"><div class="value">${formatTime(elapsedSeconds)}</div><div class="label">Tempo total</div></div>
         <div class="cell"><div class="value">${currentAttempt.exitCount}</div><div class="label">Saídas do separador</div></div>
       </div>
@@ -913,6 +988,11 @@
       sendBtn.disabled = true;
       sendBtn.textContent = 'A enviar...';
 
+      const avgSecondsPerItem = currentAttempt.stats.total > 0
+        ? (elapsedSeconds / currentAttempt.stats.total)
+        : 0;
+      const flagged = avgSecondsPerItem > 0 && avgSecondsPerItem < FLAG_SECONDS_PER_ITEM;
+
       const payload = {
         nome: currentAttempt.student.nome,
         turma: currentAttempt.student.turma,
@@ -920,8 +1000,11 @@
         nivel: id + ' - ' + LEVELS.find(l => l.id === id).name,
         pontuacao: currentAttempt.stats.correct + '/' + currentAttempt.stats.total,
         percentagem: pct + '%',
+        nota: nota + '/20',
         tempoTotal: formatTime(elapsedSeconds),
         saidas: currentAttempt.exitCount,
+        tempoMedioPorItem: avgSecondsPerItem.toFixed(1) + 's',
+        sinalRapido: flagged ? 'Possível resposta ao calhas' : '',
       };
 
       fetch(SCRIPT_URL, {
