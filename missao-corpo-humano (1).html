@@ -355,6 +355,53 @@
   .opt-btn.correct{ border-color:var(--ok) !important; color:var(--ok) !important; }
   .opt-btn.wrong{ border-color:#E06B6B !important; color:#E06B6B !important; }
 
+  /* identificação */
+  .id-form label{ display:block; font-size:0.8rem; color:var(--text-dim); margin:14px 0 6px; }
+  .id-form input{
+    width:100%; background:var(--bg-2); border:1px solid var(--locked);
+    color:var(--text); border-radius:10px; padding:12px; font-size:0.95rem; font-family:'Inter',sans-serif;
+  }
+  .id-form input:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
+  .id-error{ color:#E06B6B; font-size:0.82rem; margin-top:10px; min-height:18px; }
+
+  /* incorporação da página + temporizador de cópia */
+  .embed-frame{
+    width:100%; height:60vh; min-height:360px; border:1px solid var(--locked);
+    border-radius:14px; background:var(--bg-2); margin-bottom:14px;
+  }
+  .embed-fallback{ font-size:0.8rem; color:var(--text-dim); margin-bottom:16px; }
+  .embed-fallback a{ color:var(--signal); }
+  .copy-timer{
+    font-family:'JetBrains Mono',monospace; font-size:1.4rem; color:var(--breath);
+    text-align:center; margin-bottom:14px;
+  }
+
+  /* campo de reflexão */
+  .reflect-textarea{
+    width:100%; min-height:120px; background:var(--bg-2); border:1px solid var(--locked);
+    color:var(--text); border-radius:12px; padding:14px; font-family:'Inter',sans-serif;
+    font-size:0.95rem; resize:vertical; margin-bottom:14px;
+  }
+  .reflect-textarea:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
+
+  /* overlay de reinício obrigatório */
+  .overlay{
+    position:fixed; inset:0; background:rgba(11,21,38,0.94);
+    display:none; align-items:center; justify-content:center; z-index:30; padding:24px;
+  }
+  .overlay.open{ display:flex; }
+  .overlay-card{
+    max-width:400px; width:100%; border-radius:16px; padding:28px 24px; text-align:center;
+    background:#2A1414; border:1px solid #E06B6B;
+  }
+  .overlay-card .icon{ font-size:2rem; margin-bottom:10px; display:block; }
+  .overlay-card h2{ font-family:'Fraunces',serif; font-size:1.15rem; margin:0 0 10px; }
+  .overlay-card p{ color:var(--text-dim); font-size:0.92rem; line-height:1.5; margin:0 0 20px; }
+  .overlay-card button{
+    background:#E06B6B; color:#2A1414; border:none; border-radius:10px; padding:12px 18px;
+    font-family:'Inter',sans-serif; font-weight:600; font-size:0.92rem; cursor:pointer; width:100%;
+  }
+
   .help-links{
     display:flex;
     flex-wrap:wrap;
@@ -489,7 +536,24 @@
   </div>
 </div>
 
+<div class="overlay" id="restart-overlay">
+  <div class="overlay-card">
+    <span class="icon">⛔</span>
+    <h2>Não tens permissão para sair da aplicação!</h2>
+    <p>Caso o faças, inicias novamente o trabalho e a tua professora é informada.</p>
+    <button id="restart-ok-btn">OK, recomeçar o Nível 1</button>
+  </div>
+</div>
+
 <script>
+  // ===== CONFIGURAÇÃO DO NOVO FLUXO DO NÍVEL 1 =====
+  const MISSAO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHAsWJCo5vv5QVajCKuX69VAeYjYdrOAHGCtPz3EZqX5R-1h7KBAT5C3r0Pv3YJ8D6/exec';
+  const COPY_MINUTES = 5;
+  const LEVEL1_COPY_LINKS = [
+    { label: 'Homeostasia', url: 'https://view.genially.com/659bc4c3582e380014f3d636' },
+    { label: 'Sistema Nervoso/Endócrino', url: 'https://view.genially.com/659bc4f9b82d3b00159432b6' },
+  ];
+
   const LEVELS = [
     { id:1, name:'Regulação Nervosa e Endócrina', basePoints:10 },
     { id:2, name:'Aparelho Circulatório', basePoints:15 },
@@ -791,35 +855,116 @@
     return a;
   }
 
+  // ===== ENVIO DE EVENTOS DO NÍVEL 1 PARA A GOOGLE SHEET =====
+  function sendMissaoEvent(payload){
+    if(!MISSAO_SCRIPT_URL || MISSAO_SCRIPT_URL === 'COLOCAR_AQUI_O_URL_DO_SCRIPT') return;
+    fetch(MISSAO_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    }).catch(() => { /* melhor esforço — não bloqueia o fluxo do aluno */ });
+  }
+
+  // ===== CONTROLO DE SAÍDA DO SEPARADOR (só ativo durante o Nível 1) =====
+  let level1Session = null; // { nome, turma } quando o fluxo está em curso
+  let missaoHiddenSince = null;
+  const restartOverlay = document.getElementById('restart-overlay');
+
+  document.addEventListener('visibilitychange', () => {
+    if(!level1Session) return;
+    if(document.visibilityState === 'hidden'){
+      missaoHiddenSince = Date.now();
+    } else if(document.visibilityState === 'visible' && missaoHiddenSince !== null){
+      missaoHiddenSince = null;
+      sendMissaoEvent({
+        tipo: 'Saída do separador — reinício',
+        nome: level1Session.nome,
+        turma: level1Session.turma,
+        nivel: 1,
+      });
+      restartOverlay.classList.add('open');
+    }
+  });
+
+  document.getElementById('restart-ok-btn').addEventListener('click', () => {
+    restartOverlay.classList.remove('open');
+    if(level1Session) runLevel1Steps(level1Session, false);
+  });
+
+  // ===== NÍVEL 1 =====
   function setupLevel1(){
     completeBtn.style.display = 'none';
     testTag.style.display = 'none';
-    renderHelpLinks(1);
+    helpLinksEl.style.display = 'none';
+    level1Session = null;
 
     if(state.status[1] === 'completed'){
       levelContentEl.innerHTML = `
         <div class="placeholder-card">Já concluíste este nível — bom trabalho! Podes rever os desafios para consolidar a matéria, sem perder pontos.</div>
         <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
       `;
-      document.getElementById('review-btn').addEventListener('click', () => runLevel1Flow(true));
+      document.getElementById('review-btn').addEventListener('click', () => {
+        showLevel1Identification(true);
+      });
       return;
     }
-    runLevel1Flow(false);
+    showLevel1Identification(false);
   }
 
-  function runLevel1Flow(isReview){
-    let stage = 0;
-    showStage();
+  function showLevel1Identification(isReview){
+    levelContentEl.innerHTML = `
+      <div class="id-form">
+        <p class="stage-progress">Antes de começares, identifica-te.</p>
+        <label for="l1-nome">Nome</label>
+        <input type="text" id="l1-nome" autocomplete="off">
+        <label for="l1-turma">Turma</label>
+        <input type="text" id="l1-turma" autocomplete="off">
+        <div class="id-error" id="l1-id-error"></div>
+        <button class="complete-btn" id="l1-start-btn" style="margin-top:8px;">Começar Nível 1</button>
+      </div>
+    `;
+    document.getElementById('l1-start-btn').addEventListener('click', () => {
+      const nome = document.getElementById('l1-nome').value.trim();
+      const turma = document.getElementById('l1-turma').value.trim();
+      const errorEl = document.getElementById('l1-id-error');
+      if(!nome || !turma){
+        errorEl.textContent = 'Preenche o nome e a turma antes de começar.';
+        return;
+      }
+      runLevel1Steps({ nome, turma }, isReview);
+    });
+  }
 
-    function showStage(){
-      if(stage === 0){
-        runClassifyStage(CLASSIFY_NE, 'Nervosa', 'Endócrina', 'nervosa', 'endocrina', 'Parte 1 de 3 — Nervosa vs Endócrina', () => { stage = 1; showStage(); });
-      } else if(stage === 1){
-        runClassifyStage(CLASSIFY_SP, 'Simpático', 'Parassimpático', 'simpatico', 'parassimpatico', 'Parte 2 de 3 — Simpático vs Parassimpático', () => { stage = 2; showStage(); });
-      } else if(stage === 2){
-        runQuizStage(QUIZ_L1, 'Parte 3 de 3 — Quiz Cronometrado', () => { stage = 3; showStage(); }, 60);
+  function buildLevel1Steps(){
+    const steps = [];
+    LEVEL1_COPY_LINKS.forEach(link => {
+      steps.push({ type: 'copy', link });
+      steps.push({ type: 'explain' });
+      steps.push({ type: 'reflect', momento: link.label });
+    });
+    steps.push({ type: 'quiz' });
+    return steps;
+  }
+
+  function runLevel1Steps(student, isReview){
+    level1Session = isReview ? null : student; // só ativa o controlo de saída fora do modo de revisão
+    const steps = buildLevel1Steps();
+    let stepIdx = 0;
+    showStep();
+
+    function showStep(){
+      const step = steps[stepIdx];
+      if(step.type === 'copy'){
+        renderCopyStep(step.link, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'explain'){
+        renderExplainStep(() => { stepIdx++; showStep(); });
+      } else if(step.type === 'reflect'){
+        renderReflectStep(student, step.momento, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'quiz'){
+        runQuizStage(QUIZ_L1, 'Quiz Final do Nível 1', () => { stepIdx++; showStep(); }, 60);
       } else {
-        levelContentEl.innerHTML = '<div class="placeholder-card" style="border-style:solid;border-color:var(--ok);color:var(--text);">Concluíste as 3 partes do Nível 1! 🎉</div>';
+        level1Session = null;
+        levelContentEl.innerHTML = '<div class="placeholder-card" style="border-style:solid;border-color:var(--ok);color:var(--text);">Concluíste o Nível 1! 🎉</div>';
         const btn = document.createElement('button');
         btn.className = 'complete-btn';
         btn.style.marginTop = '18px';
@@ -828,6 +973,68 @@
         levelContentEl.appendChild(btn);
       }
     }
+  }
+
+  function renderCopyStep(link, onDone){
+    let secondsLeft = COPY_MINUTES * 60;
+    levelContentEl.innerHTML = `
+      <div class="stage-title">Passa para o caderno: ${link.label}</div>
+      <div class="stage-progress">Copia o conteúdo desta página para o teu caderno. O botão liberta-se ao fim de ${COPY_MINUTES} minutos.</div>
+      <div class="copy-timer" id="copy-timer">${COPY_MINUTES}:00</div>
+      <iframe class="embed-frame" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
+      <div class="embed-fallback">Se a página não aparecer acima, abre-a numa nova aba: <a href="${link.url}" target="_blank" rel="noopener">${link.label}</a></div>
+      <button class="complete-btn" id="copy-next-btn" disabled>Terminei de copiar</button>
+    `;
+    const nextBtn = document.getElementById('copy-next-btn');
+    const timerEl = document.getElementById('copy-timer');
+    const timerId = setInterval(() => {
+      secondsLeft--;
+      const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+      const s = String(secondsLeft % 60).padStart(2, '0');
+      timerEl.textContent = m + ':' + s;
+      if(secondsLeft <= 0){
+        clearInterval(timerId);
+        nextBtn.disabled = false;
+      }
+    }, 1000);
+    nextBtn.addEventListener('click', () => { clearInterval(timerId); onDone(); });
+  }
+
+  function renderExplainStep(onDone){
+    levelContentEl.innerHTML = `
+      <div class="placeholder-card">
+        Vira-te para o colega do lado e explica-lhe, por palavras tuas, o que acabaste de aprender.
+      </div>
+      <button class="complete-btn" id="explain-next-btn" style="margin-top:16px;">Já expliquei ao colega, continuar</button>
+    `;
+    document.getElementById('explain-next-btn').addEventListener('click', onDone);
+  }
+
+  function renderReflectStep(student, momento, onDone){
+    levelContentEl.innerHTML = `
+      <div class="stage-title">Reflexão</div>
+      <div class="stage-progress">O que achas que foi mais difícil de perceber para o teu colega?</div>
+      <textarea class="reflect-textarea" id="reflect-text" placeholder="Escreve aqui..."></textarea>
+      <div class="id-error" id="reflect-error"></div>
+      <button class="complete-btn" id="reflect-next-btn">Guardar e continuar</button>
+    `;
+    document.getElementById('reflect-next-btn').addEventListener('click', () => {
+      const texto = document.getElementById('reflect-text').value.trim();
+      const errorEl = document.getElementById('reflect-error');
+      if(!texto){
+        errorEl.textContent = 'Escreve alguma coisa antes de continuar.';
+        return;
+      }
+      sendMissaoEvent({
+        tipo: 'Reflexão',
+        nome: student.nome,
+        turma: student.turma,
+        nivel: 1,
+        momento: momento,
+        texto: texto,
+      });
+      onDone();
+    });
   }
 
   function runClassifyStage(items, labelA, labelB, keyA, keyB, title, onDone){
@@ -1194,6 +1401,7 @@
   function closeLevel(){
     levelScreen.classList.remove('open');
     activeLevel = null;
+    level1Session = null;
   }
 
   function completeLevel(id){
