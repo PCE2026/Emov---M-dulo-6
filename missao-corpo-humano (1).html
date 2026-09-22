@@ -976,28 +976,44 @@
   }
 
   function renderCopyStep(link, onDone){
-    let secondsLeft = COPY_MINUTES * 60;
     levelContentEl.innerHTML = `
       <div class="stage-title">Passa para o caderno: ${link.label}</div>
-      <div class="stage-progress">Copia o conteúdo desta página para o teu caderno. O botão liberta-se ao fim de ${COPY_MINUTES} minutos.</div>
+      <div class="stage-progress" id="copy-instructions">Copia o conteúdo desta página para o teu caderno. No mínimo ${COPY_MINUTES} minutos — depois disso, decides se precisas de mais tempo ou se já podes parar para falar com o colega.</div>
       <div class="copy-timer" id="copy-timer">${COPY_MINUTES}:00</div>
-      <iframe class="embed-frame" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
+      <iframe class="embed-frame" id="copy-iframe" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
       <div class="embed-fallback">Se a página não aparecer acima, abre-a numa nova aba: <a href="${link.url}" target="_blank" rel="noopener">${link.label}</a></div>
-      <button class="complete-btn" id="copy-next-btn" disabled>Terminei de copiar</button>
+      <div class="nav-row" id="copy-buttons"></div>
     `;
-    const nextBtn = document.getElementById('copy-next-btn');
+    // O iframe acima é criado UMA ÚNICA VEZ para este documento — os ciclos seguintes
+    // só atualizam o temporizador e os botões, nunca o iframe, para não perder a página onde o aluno ficou.
     const timerEl = document.getElementById('copy-timer');
-    const timerId = setInterval(() => {
-      secondsLeft--;
-      const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
-      const s = String(secondsLeft % 60).padStart(2, '0');
-      timerEl.textContent = m + ':' + s;
-      if(secondsLeft <= 0){
-        clearInterval(timerId);
-        nextBtn.disabled = false;
-      }
-    }, 1000);
-    nextBtn.addEventListener('click', () => { clearInterval(timerId); onDone(); });
+    const buttonsEl = document.getElementById('copy-buttons');
+
+    function startCycle(){
+      let secondsLeft = COPY_MINUTES * 60;
+      buttonsEl.innerHTML = '';
+      const timerId = setInterval(() => {
+        secondsLeft--;
+        const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+        const s = String(secondsLeft % 60).padStart(2, '0');
+        timerEl.textContent = m + ':' + s;
+        if(secondsLeft <= 0){
+          clearInterval(timerId);
+          showChoiceButtons();
+        }
+      }, 1000);
+    }
+
+    function showChoiceButtons(){
+      buttonsEl.innerHTML = `
+        <button class="opt-btn" id="more-time-btn">+ ${COPY_MINUTES} minutos</button>
+        <button class="complete-btn" id="copy-done-btn" style="flex:1;">Terminei, quero falar com o colega</button>
+      `;
+      document.getElementById('more-time-btn').addEventListener('click', startCycle);
+      document.getElementById('copy-done-btn').addEventListener('click', onDone);
+    }
+
+    startCycle();
   }
 
   function renderExplainStep(onDone){
