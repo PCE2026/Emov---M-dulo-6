@@ -369,11 +369,30 @@
     width:100%; height:60vh; min-height:360px; border:1px solid var(--locked);
     border-radius:14px; background:var(--bg-2); margin-bottom:14px;
   }
+  @media (max-width:640px){
+    .embed-frame{ height:42vh; min-height:240px; }
+  }
   .embed-fallback{ font-size:0.8rem; color:var(--text-dim); margin-bottom:16px; }
   .embed-fallback a{ color:var(--signal); }
   .copy-timer{
     font-family:'JetBrains Mono',monospace; font-size:1.4rem; color:var(--breath);
     text-align:center; margin-bottom:14px;
+  }
+  /* barra de ação fixa no fundo do ecrã — o botão de continuar nunca fica escondido */
+  .copy-actionbar{
+    position:sticky; bottom:0; left:0; right:0;
+    background:linear-gradient(180deg, rgba(11,21,38,0) 0%, var(--bg) 28%);
+    padding:14px 0 calc(14px + env(safe-area-inset-bottom, 0px));
+    margin:-8px 0 0;
+    z-index:6;
+  }
+  .copy-actionbar .complete-btn{
+    margin-top:0;
+    box-shadow:0 -6px 20px rgba(6,12,24,0.55);
+  }
+  .copy-actionbar .copy-hint{
+    font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--text-dim);
+    text-align:center; margin-bottom:8px;
   }
 
   /* campo de reflexão */
@@ -1033,13 +1052,19 @@
       <div class="copy-timer" id="copy-timer">${COPY_MINUTES}:00</div>
       <iframe class="embed-frame" id="copy-iframe" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
       <div class="embed-fallback">Se a página não aparecer acima, abre-a numa nova aba: <a href="${link.url}" target="_blank" rel="noopener">${link.label}</a></div>
-      <button class="complete-btn" id="copy-done-btn" disabled>Terminei, quero falar com o colega</button>
+      <div class="copy-actionbar">
+        <div class="copy-hint" id="copy-hint">Aguarda o fim do tempo mínimo para continuares.</div>
+        <button class="complete-btn" id="copy-done-btn" disabled>Terminei, quero falar com o colega</button>
+      </div>
     `;
     // O iframe acima é criado UMA ÚNICA VEZ para este documento e nunca é recriado,
     // para o aluno não perder a página onde ficou. Ao fim do tempo mínimo, o botão
     // liberta-se e fica disponível o tempo que for preciso — sem mais temporizadores.
+    // O botão vive numa barra fixa no fundo do ecrã (sticky), por isso está sempre
+    // visível mesmo em telemóveis, sem ser preciso percorrer o embed até ao fim.
     const timerEl = document.getElementById('copy-timer');
     const doneBtn = document.getElementById('copy-done-btn');
+    const hintEl = document.getElementById('copy-hint');
     let secondsLeft = COPY_MINUTES * 60;
     const timerId = setInterval(() => {
       secondsLeft--;
@@ -1049,6 +1074,7 @@
       if(secondsLeft <= 0){
         clearInterval(timerId);
         doneBtn.disabled = false;
+        hintEl.textContent = 'Já podes continuar quando quiseres.';
       }
     }, 1000);
     doneBtn.addEventListener('click', () => { clearInterval(timerId); onDone(); });
