@@ -386,22 +386,24 @@
     font-family:'JetBrains Mono',monospace; font-size:1.4rem; color:var(--breath);
     text-align:center; margin-bottom:14px;
   }
-  /* barra de ação fixa no fundo do ecrã — o botão de continuar nunca fica escondido */
+  /* barra de ação fixa ao ECRÃ (não à página) — fica sempre visível,     */
+  /* mesmo que o dedo fique "preso" a fazer scroll dentro do embed.       */
   .copy-actionbar{
-    position:sticky; bottom:0; left:0; right:0;
-    background:linear-gradient(180deg, rgba(11,21,38,0) 0%, var(--bg) 28%);
-    padding:14px 0 calc(14px + env(safe-area-inset-bottom, 0px));
-    margin:-8px 0 0;
-    z-index:6;
+    position:fixed; left:0; right:0; bottom:0;
+    background:var(--bg-0);
+    border-top:1px solid var(--bg-2);
+    padding:12px 22px calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index:20;
+    box-shadow:0 -8px 24px rgba(6,12,24,0.55);
   }
-  .copy-actionbar .complete-btn{
-    margin-top:0;
-    box-shadow:0 -6px 20px rgba(6,12,24,0.55);
-  }
+  .copy-actionbar-inner{ max-width:520px; margin:0 auto; }
+  .copy-actionbar .complete-btn{ margin-top:0; }
   .copy-actionbar .copy-hint{
     font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--text-dim);
     text-align:center; margin-bottom:8px;
   }
+  /* reserva espaço no fim do conteúdo para a barra fixa não tapar nada */
+  .copy-actionbar-spacer{ height:96px; }
 
   /* campo de reflexão */
   .reflect-textarea{
@@ -944,6 +946,13 @@
     try { localStorage.removeItem(LEVEL1_STORAGE_KEY); } catch(e) { /* ignora */ }
   }
 
+  // Remove a barra de ação fixa do passo de cópia (vive fora de #level-content,
+  // presa ao <body>, por isso tem de ser limpa manualmente ao sair desse passo).
+  function removeCopyActionbar(){
+    const el = document.getElementById('copy-actionbar');
+    if(el) el.remove();
+  }
+
   // ===== NÍVEL 1 =====
   function setupLevel1(){
     completeBtn.style.display = 'none';
@@ -1029,6 +1038,7 @@
     showStep();
 
     function showStep(){
+      removeCopyActionbar();
       if(!isReview) saveLevel1Progress(student, stepIdx);
       const step = steps[stepIdx];
       if(step.type === 'copy'){
@@ -1060,16 +1070,27 @@
       <div class="copy-timer" id="copy-timer">${COPY_MINUTES}:00</div>
       <iframe class="embed-frame" id="copy-iframe" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
       <div class="embed-fallback">Se a página não aparecer acima, abre-a numa nova aba: <a href="${link.url}" target="_blank" rel="noopener">${link.label}</a></div>
-      <div class="copy-actionbar">
+      <div class="copy-actionbar-spacer"></div>
+    `;
+    // Barra de ação fixa ao próprio ECRÃ (position:fixed), fora do fluxo do
+    // #level-content — assim fica sempre visível e por cima de tudo, mesmo que
+    // o dedo, ao tentar fazer scroll sobre o embed, fique "preso" dentro dele
+    // e a página não deslize. O aluno nunca precisa de conseguir fazer scroll
+    // para chegar ao botão.
+    removeCopyActionbar();
+    const actionbar = document.createElement('div');
+    actionbar.className = 'copy-actionbar';
+    actionbar.id = 'copy-actionbar';
+    actionbar.innerHTML = `
+      <div class="copy-actionbar-inner">
         <div class="copy-hint" id="copy-hint">Aguarda o fim do tempo mínimo para continuares.</div>
         <button class="complete-btn" id="copy-done-btn" disabled>Terminei, quero falar com o colega</button>
       </div>
     `;
+    document.body.appendChild(actionbar);
     // O iframe acima é criado UMA ÚNICA VEZ para este documento e nunca é recriado,
     // para o aluno não perder a página onde ficou. Ao fim do tempo mínimo, o botão
     // liberta-se e fica disponível o tempo que for preciso — sem mais temporizadores.
-    // O botão vive numa barra fixa no fundo do ecrã (sticky), por isso está sempre
-    // visível mesmo em telemóveis, sem ser preciso percorrer o embed até ao fim.
     const timerEl = document.getElementById('copy-timer');
     const doneBtn = document.getElementById('copy-done-btn');
     const hintEl = document.getElementById('copy-hint');
@@ -1085,10 +1106,11 @@
         hintEl.textContent = 'Já podes continuar quando quiseres.';
       }
     }, 1000);
-    doneBtn.addEventListener('click', () => { clearInterval(timerId); onDone(); });
+    doneBtn.addEventListener('click', () => { clearInterval(timerId); removeCopyActionbar(); onDone(); });
   }
 
   function renderExplainStep(onDone){
+    removeCopyActionbar();
     levelContentEl.innerHTML = `
       <div class="placeholder-card">
         Vira-te para o colega do lado e explica-lhe, por palavras tuas, o que acabaste de aprender.
@@ -1099,6 +1121,7 @@
   }
 
   function renderReflectStep(student, momento, onDone){
+    removeCopyActionbar();
     levelContentEl.innerHTML = `
       <div class="stage-title">Reflexão</div>
       <div class="stage-progress">O que achas que foi mais difícil de perceber para o teu colega?</div>
@@ -1490,6 +1513,7 @@
     levelScreen.classList.remove('open');
     activeLevel = null;
     level1Session = null;
+    removeCopyActionbar();
   }
 
   function completeLevel(id){
