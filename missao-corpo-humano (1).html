@@ -1020,12 +1020,20 @@
     });
   }
 
+  const CYCLES_PER_DOC = 2; // ciclos completos (copiar→explicar→refletir) antes de poder pedir o documento seguinte
+
   function buildLevel1Steps(){
     const steps = [];
-    LEVEL1_COPY_LINKS.forEach(link => {
-      steps.push({ type: 'copy', link });
-      steps.push({ type: 'explain' });
-      steps.push({ type: 'reflect', momento: link.label });
+    LEVEL1_COPY_LINKS.forEach((link, idx) => {
+      for(let cycle = 1; cycle <= CYCLES_PER_DOC; cycle++){
+        steps.push({ type: 'copy', link, cycle });
+        steps.push({ type: 'explain' });
+        steps.push({ type: 'reflect', momento: `${link.label} (parte ${cycle}/${CYCLES_PER_DOC})` });
+      }
+      const isLast = idx === LEVEL1_COPY_LINKS.length - 1;
+      if(!isLast){
+        steps.push({ type: 'request-next', nextLabel: LEVEL1_COPY_LINKS[idx + 1].label });
+      }
     });
     steps.push({ type: 'quiz' });
     return steps;
@@ -1042,11 +1050,13 @@
       if(!isReview) saveLevel1Progress(student, stepIdx);
       const step = steps[stepIdx];
       if(step.type === 'copy'){
-        renderCopyStep(step.link, () => { stepIdx++; showStep(); });
+        renderCopyStep(step.link, step.cycle, () => { stepIdx++; showStep(); });
       } else if(step.type === 'explain'){
         renderExplainStep(() => { stepIdx++; showStep(); });
       } else if(step.type === 'reflect'){
         renderReflectStep(student, step.momento, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'request-next'){
+        renderRequestNextStep(step.nextLabel, () => { stepIdx++; showStep(); });
       } else if(step.type === 'quiz'){
         runQuizStage(QUIZ_L1, 'Quiz Final do Nível 1', () => { stepIdx++; showStep(); }, 60);
       } else {
@@ -1063,9 +1073,10 @@
     }
   }
 
-  function renderCopyStep(link, onDone){
+  function renderCopyStep(link, cycle, onDone){
     levelContentEl.innerHTML = `
       <div class="stage-title">Passa para o caderno: ${link.label}</div>
+      <div class="stage-progress">Parte ${cycle} de ${CYCLES_PER_DOC} com este documento</div>
       <div class="stage-progress" id="copy-instructions">Copia o conteúdo desta página para o teu caderno. No mínimo ${COPY_MINUTES} minutos — depois disso, ficas o tempo que precisares. Clica no botão só quando estiveres mesmo pronto para falar com o colega.</div>
       <div class="copy-timer" id="copy-timer">${COPY_MINUTES}:00</div>
       <iframe class="embed-frame" id="copy-iframe" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
@@ -1146,6 +1157,21 @@
       });
       onDone();
     });
+  }
+
+  // Ecrã de transição obrigatório entre documentos: só aparece depois de
+  // cumpridos os CYCLES_PER_DOC ciclos completos do documento atual, e o
+  // aluno tem de pedir explicitamente o documento seguinte — nunca avança
+  // sozinho no fim dos 5 minutos.
+  function renderRequestNextStep(nextLabel, onDone){
+    removeCopyActionbar();
+    levelContentEl.innerHTML = `
+      <div class="placeholder-card" style="border-color:var(--ok);color:var(--text);">
+        Já fizeste ${CYCLES_PER_DOC} momentos de cópia e reflexão com este documento. Quando estiveres pronto, pede o documento seguinte.
+      </div>
+      <button class="complete-btn" id="request-next-btn" style="margin-top:16px;">Pedir documento seguinte: ${nextLabel}</button>
+    `;
+    document.getElementById('request-next-btn').addEventListener('click', onDone);
   }
 
   function runClassifyStage(items, labelA, labelB, keyA, keyB, title, onDone){
