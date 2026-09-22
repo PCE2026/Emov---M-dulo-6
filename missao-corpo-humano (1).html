@@ -202,8 +202,16 @@
     background:var(--bg-0);
     display:none;
     flex-direction:column;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
   .level-screen.open{ display:flex; }
+  .level-header{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:var(--bg-0);
+  }
 
   .level-header{
     display:flex;
