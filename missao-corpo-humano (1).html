@@ -888,8 +888,34 @@
 
   document.getElementById('restart-ok-btn').addEventListener('click', () => {
     restartOverlay.classList.remove('open');
-    if(level1Session) runLevel1Steps(level1Session, false);
+    clearLevel1Progress();
+    if(level1Session) runLevel1Steps(level1Session, false, 0);
   });
+
+  // ===== PERSISTÊNCIA LOCAL (mesmo Chromebook) — permite retomar no dia seguinte =====
+  const LEVEL1_STORAGE_KEY = 'missao6_l1_progress';
+
+  function saveLevel1Progress(student, stepIdx){
+    try {
+      localStorage.setItem(LEVEL1_STORAGE_KEY, JSON.stringify({
+        nome: student.nome,
+        turma: student.turma,
+        stepIdx: stepIdx,
+        savedAt: Date.now(),
+      }));
+    } catch(e) { /* localStorage indisponível — segue sem guardar */ }
+  }
+
+  function loadLevel1Progress(){
+    try {
+      const raw = localStorage.getItem(LEVEL1_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+
+  function clearLevel1Progress(){
+    try { localStorage.removeItem(LEVEL1_STORAGE_KEY); } catch(e) { /* ignora */ }
+  }
 
   // ===== NÍVEL 1 =====
   function setupLevel1(){
@@ -908,6 +934,29 @@
       });
       return;
     }
+
+    const saved = loadLevel1Progress();
+    if(saved){
+      const savedDate = new Date(saved.savedAt).toLocaleDateString('pt-PT');
+      levelContentEl.innerHTML = `
+        <div class="placeholder-card">
+          Encontrámos um trabalho por terminar neste computador: <strong>${saved.nome}</strong> (${saved.turma}), guardado em ${savedDate}.
+        </div>
+        <div class="nav-row" style="margin-top:16px;">
+          <button class="opt-btn" id="restart-fresh-btn">Começar de novo</button>
+          <button class="complete-btn" id="resume-btn" style="flex:1;">Continuar de onde fiquei</button>
+        </div>
+      `;
+      document.getElementById('resume-btn').addEventListener('click', () => {
+        runLevel1Steps({ nome: saved.nome, turma: saved.turma }, false, saved.stepIdx);
+      });
+      document.getElementById('restart-fresh-btn').addEventListener('click', () => {
+        clearLevel1Progress();
+        showLevel1Identification(false);
+      });
+      return;
+    }
+
     showLevel1Identification(false);
   }
 
@@ -931,7 +980,7 @@
         errorEl.textContent = 'Preenche o nome e a turma antes de começar.';
         return;
       }
-      runLevel1Steps({ nome, turma }, isReview);
+      runLevel1Steps({ nome, turma }, isReview, 0);
     });
   }
 
@@ -946,13 +995,14 @@
     return steps;
   }
 
-  function runLevel1Steps(student, isReview){
+  function runLevel1Steps(student, isReview, startStepIdx){
     level1Session = isReview ? null : student; // só ativa o controlo de saída fora do modo de revisão
     const steps = buildLevel1Steps();
-    let stepIdx = 0;
+    let stepIdx = startStepIdx || 0;
     showStep();
 
     function showStep(){
+      if(!isReview) saveLevel1Progress(student, stepIdx);
       const step = steps[stepIdx];
       if(step.type === 'copy'){
         renderCopyStep(step.link, () => { stepIdx++; showStep(); });
@@ -964,6 +1014,7 @@
         runQuizStage(QUIZ_L1, 'Quiz Final do Nível 1', () => { stepIdx++; showStep(); }, 60);
       } else {
         level1Session = null;
+        if(!isReview) clearLevel1Progress();
         levelContentEl.innerHTML = '<div class="placeholder-card" style="border-style:solid;border-color:var(--ok);color:var(--text);">Concluíste o Nível 1! 🎉</div>';
         const btn = document.createElement('button');
         btn.className = 'complete-btn';
@@ -978,42 +1029,29 @@
   function renderCopyStep(link, onDone){
     levelContentEl.innerHTML = `
       <div class="stage-title">Passa para o caderno: ${link.label}</div>
-      <div class="stage-progress" id="copy-instructions">Copia o conteúdo desta página para o teu caderno. No mínimo ${COPY_MINUTES} minutos — depois disso, decides se precisas de mais tempo ou se já podes parar para falar com o colega.</div>
+      <div class="stage-progress" id="copy-instructions">Copia o conteúdo desta página para o teu caderno. No mínimo ${COPY_MINUTES} minutos — depois disso, ficas o tempo que precisares. Clica no botão só quando estiveres mesmo pronto para falar com o colega.</div>
       <div class="copy-timer" id="copy-timer">${COPY_MINUTES}:00</div>
       <iframe class="embed-frame" id="copy-iframe" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
       <div class="embed-fallback">Se a página não aparecer acima, abre-a numa nova aba: <a href="${link.url}" target="_blank" rel="noopener">${link.label}</a></div>
-      <div class="nav-row" id="copy-buttons"></div>
+      <button class="complete-btn" id="copy-done-btn" disabled>Terminei, quero falar com o colega</button>
     `;
-    // O iframe acima é criado UMA ÚNICA VEZ para este documento — os ciclos seguintes
-    // só atualizam o temporizador e os botões, nunca o iframe, para não perder a página onde o aluno ficou.
+    // O iframe acima é criado UMA ÚNICA VEZ para este documento e nunca é recriado,
+    // para o aluno não perder a página onde ficou. Ao fim do tempo mínimo, o botão
+    // liberta-se e fica disponível o tempo que for preciso — sem mais temporizadores.
     const timerEl = document.getElementById('copy-timer');
-    const buttonsEl = document.getElementById('copy-buttons');
-
-    function startCycle(){
-      let secondsLeft = COPY_MINUTES * 60;
-      buttonsEl.innerHTML = '';
-      const timerId = setInterval(() => {
-        secondsLeft--;
-        const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
-        const s = String(secondsLeft % 60).padStart(2, '0');
-        timerEl.textContent = m + ':' + s;
-        if(secondsLeft <= 0){
-          clearInterval(timerId);
-          showChoiceButtons();
-        }
-      }, 1000);
-    }
-
-    function showChoiceButtons(){
-      buttonsEl.innerHTML = `
-        <button class="opt-btn" id="more-time-btn">+ ${COPY_MINUTES} minutos</button>
-        <button class="complete-btn" id="copy-done-btn" style="flex:1;">Terminei, quero falar com o colega</button>
-      `;
-      document.getElementById('more-time-btn').addEventListener('click', startCycle);
-      document.getElementById('copy-done-btn').addEventListener('click', onDone);
-    }
-
-    startCycle();
+    const doneBtn = document.getElementById('copy-done-btn');
+    let secondsLeft = COPY_MINUTES * 60;
+    const timerId = setInterval(() => {
+      secondsLeft--;
+      const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+      const s = String(secondsLeft % 60).padStart(2, '0');
+      timerEl.textContent = m + ':' + s;
+      if(secondsLeft <= 0){
+        clearInterval(timerId);
+        doneBtn.disabled = false;
+      }
+    }, 1000);
+    doneBtn.addEventListener('click', () => { clearInterval(timerId); onDone(); });
   }
 
   function renderExplainStep(onDone){
