@@ -1116,17 +1116,8 @@
       removeCopyActionbar();
       if(!isReview) saveLevel1Progress(student, stepIdx);
       const step = steps[stepIdx];
-      if(step.type === 'copy'){
-        renderCopyStep(step.link, step.cycle, () => { stepIdx++; showStep(); });
-      } else if(step.type === 'explain'){
-        renderExplainStep(() => { stepIdx++; showStep(); });
-      } else if(step.type === 'reflect'){
-        renderReflectStep(student, step.momento, step.prompt, () => { stepIdx++; showStep(); });
-      } else if(step.type === 'request-next'){
-        renderRequestNextStep(step.nextLabel, () => { stepIdx++; showStep(); });
-      } else if(step.type === 'quiz'){
-        runQuizStage(QUIZ_L1, 'Quiz Final do Nível 1', (r) => { quizResult = r; stepIdx++; showStep(); }, 60);
-      } else {
+      if(!step){
+        // Chegámos ao fim dos passos (depois do quiz) — mostra a recapitulação.
         activeIdentSession = null;
         restartCurrentFlow = null;
         if(!isReview){
@@ -1140,6 +1131,16 @@
         btn.textContent = isReview ? 'Voltar ao mapa' : 'Concluir Nível 1';
         btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(1); });
         levelContentEl.appendChild(btn);
+      } else if(step.type === 'copy'){
+        renderCopyStep(step.link, step.cycle, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'explain'){
+        renderExplainStep(() => { stepIdx++; showStep(); });
+      } else if(step.type === 'reflect'){
+        renderReflectStep(student, step.momento, step.prompt, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'request-next'){
+        renderRequestNextStep(step.nextLabel, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'quiz'){
+        runQuizStage(QUIZ_L1, 'Quiz Final do Nível 1', (r) => { quizResult = r; stepIdx++; showStep(); }, 60);
       }
     }
   }
