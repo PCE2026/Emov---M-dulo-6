@@ -9,18 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg-0:#0B1526;
-    --bg-1:#0F1E33;
-    --bg-2:#15283F;
-    --signal:#5FE3D3;
-    --signal-dim:#2E5C57;
-    --breath:#FF9F6B;
-    --locked:#33445A;
-    --locked-fill:#1A2739;
-    --text:#EAF2F0;
-    --text-dim:#8FA3B8;
-    --violet:#A78BFA;
-    --ok:#7CD98A;
+    --bg-0:#FFF8F2;
+    --bg-1:#FFFFFF;
+    --bg-2:#FDEBDD;
+    --signal:#E1631E;
+    --signal-dim:#FBD7B8;
+    --breath:#B84A17;
+    --locked:#E7D5C6;
+    --locked-fill:#FBF1E7;
+    --text:#2B211C;
+    --text-dim:#8A7563;
+    --violet:#6D28D9;
+    --ok:#1E8A4C;
+    --danger:#C0392B;
   }
 
   *{box-sizing:border-box;}
@@ -46,8 +47,8 @@
     pointer-events:none;
     z-index:0;
     background:
-      radial-gradient(ellipse 60% 40% at 30% 15%, rgba(95,227,211,0.10), transparent 60%),
-      radial-gradient(ellipse 55% 45% at 75% 80%, rgba(255,159,107,0.08), transparent 60%);
+      radial-gradient(ellipse 60% 40% at 30% 15%, rgba(225,99,30,0.09), transparent 60%),
+      radial-gradient(ellipse 55% 45% at 75% 80%, rgba(184,74,23,0.07), transparent 60%);
     animation:breathe 7s ease-in-out infinite;
   }
   @keyframes breathe{
@@ -129,13 +130,13 @@
     stroke:var(--signal);
     stroke-width:5;
     stroke-linecap:round;
-    filter:drop-shadow(0 0 6px rgba(95,227,211,0.55));
+    filter:drop-shadow(0 0 6px rgba(225,99,30,0.45));
     transition:stroke-dashoffset 900ms cubic-bezier(.4,0,.2,1);
   }
 
   .pulse-dot{
     fill:var(--signal);
-    filter:drop-shadow(0 0 5px rgba(95,227,211,0.9));
+    filter:drop-shadow(0 0 5px rgba(225,99,30,0.8));
   }
 
   .node{
@@ -150,12 +151,12 @@
   }
   .node.unlocked circle.ring{
     stroke:var(--signal);
-    fill:#123A38;
+    fill:var(--signal-dim);
     animation:node-breathe 3.2s ease-in-out infinite;
   }
   .node.completed circle.ring{
     stroke:var(--ok);
-    fill:#13351F;
+    fill:#D9F0E1;
   }
   .node.locked{ cursor:default; }
 
@@ -267,7 +268,7 @@
   .complete-btn{
     margin-top:24px;
     background:var(--signal);
-    color:#062824;
+    color:#FFF8F2;
     border:none;
     border-radius:10px;
     padding:13px 20px;
@@ -359,9 +360,9 @@
     gap:10px;
   }
   .quiz-opt.correct{ border-color:var(--ok) !important; color:var(--ok) !important; }
-  .quiz-opt.wrong{ border-color:#E06B6B !important; color:#E06B6B !important; }
+  .quiz-opt.wrong{ border-color:var(--danger) !important; color:var(--danger) !important; }
   .opt-btn.correct{ border-color:var(--ok) !important; color:var(--ok) !important; }
-  .opt-btn.wrong{ border-color:#E06B6B !important; color:#E06B6B !important; }
+  .opt-btn.wrong{ border-color:var(--danger) !important; color:var(--danger) !important; }
 
   /* identificação */
   .id-form label{ display:block; font-size:0.8rem; color:var(--text-dim); margin:14px 0 6px; }
@@ -370,7 +371,7 @@
     color:var(--text); border-radius:10px; padding:12px; font-size:0.95rem; font-family:'Inter',sans-serif;
   }
   .id-form input:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
-  .id-error{ color:#E06B6B; font-size:0.82rem; margin-top:10px; min-height:18px; }
+  .id-error{ color:var(--danger); font-size:0.82rem; margin-top:10px; min-height:18px; }
 
   /* incorporação da página + temporizador de cópia */
   .embed-frame{
@@ -394,7 +395,7 @@
     border-top:1px solid var(--bg-2);
     padding:12px 22px calc(12px + env(safe-area-inset-bottom, 0px));
     z-index:20;
-    box-shadow:0 -8px 24px rgba(6,12,24,0.55);
+    box-shadow:0 -8px 24px rgba(43,33,28,0.14);
   }
   .copy-actionbar-inner{ max-width:520px; margin:0 auto; }
   .copy-actionbar .complete-btn{ margin-top:0; }
@@ -577,7 +578,7 @@
 <script>
   // ===== CONFIGURAÇÃO DO NOVO FLUXO DO NÍVEL 1 =====
   const MISSAO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHAsWJCo5vv5QVajCKuX69VAeYjYdrOAHGCtPz3EZqX5R-1h7KBAT5C3r0Pv3YJ8D6/exec';
-  const COPY_MINUTES = 5;
+  const COPY_MINUTES = 1;
   const LEVEL1_COPY_LINKS = [
     { label: 'Homeostasia', url: 'https://view.genially.com/659bc4c3582e380014f3d636' },
     { label: 'Sistema Nervoso/Endócrino', url: 'https://view.genially.com/659bc4f9b82d3b00159432b6' },
@@ -1022,13 +1023,28 @@
 
   const CYCLES_PER_DOC = 2; // ciclos completos (copiar→explicar→refletir) antes de poder pedir o documento seguinte
 
+  // Uma pergunta de reflexão diferente para cada um dos 4 momentos (2 documentos × 2 partes),
+  // para os alunos não conseguirem reutilizar sempre a mesma resposta genérica.
+  const REFLECT_PROMPTS = [
+    'Explica por palavras tuas, sem olhar para o caderno: qual é a ideia principal deste conteúdo?',
+    'Dá um exemplo concreto, de desporto, que uses para explicar a importância do que aprendeste ao colega.',
+    'Que pergunta te fez o teu colega, sobre este conteúdo, que não soubeste responder logo?',
+    'Se explicasses isto a um aluno mais novo, que palavra ou ideia confusa evitarias usar?',
+  ];
+
   function buildLevel1Steps(){
     const steps = [];
+    let reflectIdx = 0;
     LEVEL1_COPY_LINKS.forEach((link, idx) => {
       for(let cycle = 1; cycle <= CYCLES_PER_DOC; cycle++){
         steps.push({ type: 'copy', link, cycle });
         steps.push({ type: 'explain' });
-        steps.push({ type: 'reflect', momento: `${link.label} (parte ${cycle}/${CYCLES_PER_DOC})` });
+        steps.push({
+          type: 'reflect',
+          momento: `${link.label} (parte ${cycle}/${CYCLES_PER_DOC})`,
+          prompt: REFLECT_PROMPTS[reflectIdx % REFLECT_PROMPTS.length],
+        });
+        reflectIdx++;
       }
       const isLast = idx === LEVEL1_COPY_LINKS.length - 1;
       if(!isLast){
@@ -1054,7 +1070,7 @@
       } else if(step.type === 'explain'){
         renderExplainStep(() => { stepIdx++; showStep(); });
       } else if(step.type === 'reflect'){
-        renderReflectStep(student, step.momento, () => { stepIdx++; showStep(); });
+        renderReflectStep(student, step.momento, step.prompt, () => { stepIdx++; showStep(); });
       } else if(step.type === 'request-next'){
         renderRequestNextStep(step.nextLabel, () => { stepIdx++; showStep(); });
       } else if(step.type === 'quiz'){
@@ -1131,11 +1147,11 @@
     document.getElementById('explain-next-btn').addEventListener('click', onDone);
   }
 
-  function renderReflectStep(student, momento, onDone){
+  function renderReflectStep(student, momento, prompt, onDone){
     removeCopyActionbar();
     levelContentEl.innerHTML = `
       <div class="stage-title">Reflexão</div>
-      <div class="stage-progress">O que achas que foi mais difícil de perceber para o teu colega?</div>
+      <div class="stage-progress">${prompt}</div>
       <textarea class="reflect-textarea" id="reflect-text" placeholder="Escreve aqui..."></textarea>
       <div class="id-error" id="reflect-error"></div>
       <button class="complete-btn" id="reflect-next-btn">Guardar e continuar</button>
