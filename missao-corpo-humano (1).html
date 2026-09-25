@@ -423,6 +423,12 @@
   }
   .reflect-textarea:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
 
+  /* projeto final do nível */
+  .project-task{ text-align:left; line-height:1.55; }
+  .project-label{ display:block; font-size:0.85rem; font-weight:600; color:var(--text); margin:16px 0 6px; }
+  .project-hint{ font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-dim); text-align:center; margin:-8px 0 12px; }
+  .project-hint.late{ color:var(--danger); }
+
   /* overlay de reinício obrigatório */
   .overlay{
     position:fixed; inset:0; background:rgba(11,21,38,0.94);
@@ -580,18 +586,44 @@
     <span class="icon">⛔</span>
     <h2>Não tens permissão para sair da aplicação!</h2>
     <p>Caso o faças, inicias novamente o trabalho e a tua professora é informada.</p>
-    <button id="restart-ok-btn">OK, recomeçar o Nível 1</button>
+    <button id="restart-ok-btn">OK, recomeçar o nível</button>
+  </div>
+</div>
+
+<div class="overlay" id="project-exit-overlay">
+  <div class="overlay-card">
+    <span class="icon">⚠️</span>
+    <h2>Saíste da aplicação durante o projeto</h2>
+    <p>A tua professora foi informada. O teu texto ficou guardado — continua onde estavas.</p>
+    <button id="project-exit-ok-btn">OK, continuar o projeto</button>
   </div>
 </div>
 
 <script>
-  // ===== CONFIGURAÇÃO DO NOVO FLUXO DO NÍVEL 1 =====
+  // ===== CONFIGURAÇÃO DO PERCURSO DOS NÍVEIS (documentos → caderno → colega → reflexão → quiz) =====
   const MISSAO_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHAsWJCo5vv5QVajCKuX69VAeYjYdrOAHGCtPz3EZqX5R-1h7KBAT5C3r0Pv3YJ8D6/exec';
   const COPY_MINUTES = 1;
-  const LEVEL1_COPY_LINKS = [
-    { label: 'Homeostasia', url: 'https://view.genially.com/659bc4c3582e380014f3d636' },
-    { label: 'Sistema Nervoso/Endócrino', url: 'https://view.genially.com/659bc4f9b82d3b00159432b6' },
-  ];
+  // Documentos incorporados de cada nível, pela ordem em que os alunos os recebem.
+  const LEVEL_COPY_LINKS = {
+    1: [
+      { label: 'Homeostasia', url: 'https://view.genially.com/659bc4c3582e380014f3d636' },
+      { label: 'Sistema Nervoso/Endócrino', url: 'https://view.genially.com/659bc4f9b82d3b00159432b6' },
+    ],
+    2: [
+      { label: 'Sistema Circulatório 1/2', url: 'https://view.genially.com/659bc519b82d3b0015944827' },
+      { label: 'Sistema Circulatório 2/2', url: 'https://view.genially.com/659bc5096670f50013edec2b' },
+    ],
+    3: [
+      { label: 'Sistema Respiratório', url: 'https://view.genially.com/659bc52a582e380014f40754' },
+    ],
+    4: [
+      { label: 'Sistema Digestivo 1/2', url: 'https://view.genially.com/659bc53dcc82080014bd14a0' },
+      { label: 'Sistema Digestivo 2/2 e Urinário', url: 'https://view.genially.com/659bc5546670f50013ee31ff' },
+    ],
+    5: [
+      { label: 'Regulação Hídrica e Eletrolítica', url: 'https://view.genially.com/659bc55d58842c0014a5dccd' },
+    ],
+  };
 
   const LEVELS = [
     { id:1, name:'Regulação Nervosa e Endócrina', basePoints:10 },
@@ -909,6 +941,11 @@
   let restartCurrentFlow = null; // função que reinicia o nível ativo, chamada ao confirmar o aviso
   let missaoHiddenSince = null;
   const restartOverlay = document.getElementById('restart-overlay');
+  const restartOkBtn = document.getElementById('restart-ok-btn');
+  const projectExitOverlay = document.getElementById('project-exit-overlay');
+  document.getElementById('project-exit-ok-btn').addEventListener('click', () => {
+    projectExitOverlay.classList.remove('open');
+  });
 
   document.addEventListener('visibilitychange', () => {
     if(!activeIdentSession) return;
@@ -916,6 +953,19 @@
       missaoHiddenSince = Date.now();
     } else if(document.visibilityState === 'visible' && missaoHiddenSince !== null){
       missaoHiddenSince = null;
+      // Durante o projeto (30 min de escrita), a saída é registada mas NÃO apaga nada.
+      if(activeIdentSession.projectMode){
+        sendMissaoEvent({
+          tipo: 'Saída do separador — projeto',
+          nome: activeIdentSession.nome,
+          turma: activeIdentSession.turma,
+          nivel: activeIdentSession.nivel,
+          momento: 'Projeto (sem reinício)',
+        });
+        projectExitOverlay.classList.add('open');
+        return;
+      }
+      restartOkBtn.textContent = 'OK, recomeçar o Nível ' + activeIdentSession.nivel;
       sendMissaoEvent({
         tipo: 'Saída do separador — reinício',
         nome: activeIdentSession.nome,
@@ -928,7 +978,10 @@
 
   document.getElementById('restart-ok-btn').addEventListener('click', () => {
     restartOverlay.classList.remove('open');
-    if(activeIdentSession && activeIdentSession.nivel === 1) clearLevel1Progress();
+    if(activeIdentSession){
+      clearLevelProgress(activeIdentSession.nivel);
+      clearProjectDraft(activeIdentSession.nivel);
+    }
     if(restartCurrentFlow) restartCurrentFlow();
   });
 
@@ -990,12 +1043,14 @@
     `;
   }
 
-  // ===== PERSISTÊNCIA LOCAL (mesmo Chromebook) — permite retomar no dia seguinte =====
-  const LEVEL1_STORAGE_KEY = 'missao6_l1_progress';
+  // ===== PERSISTÊNCIA LOCAL (mesmo Chromebook) — permite retomar no dia seguinte, em qualquer nível =====
+  function levelStorageKey(nivel){
+    return 'missao6_l' + nivel + '_progress';
+  }
 
-  function saveLevel1Progress(student, stepIdx){
+  function saveLevelProgress(nivel, student, stepIdx){
     try {
-      localStorage.setItem(LEVEL1_STORAGE_KEY, JSON.stringify({
+      localStorage.setItem(levelStorageKey(nivel), JSON.stringify({
         nome: student.nome,
         turma: student.turma,
         stepIdx: stepIdx,
@@ -1004,15 +1059,15 @@
     } catch(e) { /* localStorage indisponível — segue sem guardar */ }
   }
 
-  function loadLevel1Progress(){
+  function loadLevelProgress(nivel){
     try {
-      const raw = localStorage.getItem(LEVEL1_STORAGE_KEY);
+      const raw = localStorage.getItem(levelStorageKey(nivel));
       return raw ? JSON.parse(raw) : null;
     } catch(e) { return null; }
   }
 
-  function clearLevel1Progress(){
-    try { localStorage.removeItem(LEVEL1_STORAGE_KEY); } catch(e) { /* ignora */ }
+  function clearLevelProgress(nivel){
+    try { localStorage.removeItem(levelStorageKey(nivel)); } catch(e) { /* ignora */ }
   }
 
   // Remove a barra de ação fixa do passo de cópia (vive fora de #level-content,
@@ -1022,26 +1077,41 @@
     if(el) el.remove();
   }
 
-  // ===== NÍVEL 1 =====
-  function setupLevel1(){
+  // ===== PERCURSO COMUM A TODOS OS NÍVEIS =====
+  // Quiz final e tempo (em segundos) de cada nível.
+  function getLevelQuiz(nivel){
+    const quizzes = {
+      1: { questions: QUIZ_L1, time: 60 },
+      2: { questions: QUIZ_L2, time: 75 },
+      3: { questions: QUIZ_L3, time: 75 },
+      4: { questions: QUIZ_L4, time: 75 },
+      5: { questions: QUIZ_L5, time: 75 },
+    };
+    return quizzes[nivel];
+  }
+
+  function setupDocLevel(nivel){
     completeBtn.style.display = 'none';
     testTag.style.display = 'none';
     helpLinksEl.style.display = 'none';
     activeIdentSession = null;
     restartCurrentFlow = null;
 
-    if(state.status[1] === 'completed'){
+    if(state.status[nivel] === 'completed'){
+      const msg = nivel === LEVELS.length
+        ? 'Já concluíste o jogo — parabéns! Podes rever os desafios para consolidar a matéria, sem perder pontos.'
+        : 'Já concluíste este nível — bom trabalho! Podes rever os desafios para consolidar a matéria, sem perder pontos.';
       levelContentEl.innerHTML = `
-        <div class="placeholder-card">Já concluíste este nível — bom trabalho! Podes rever os desafios para consolidar a matéria, sem perder pontos.</div>
+        <div class="placeholder-card">${msg}</div>
         <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
       `;
       document.getElementById('review-btn').addEventListener('click', () => {
-        showLevel1Identification(true);
+        showIdentificationForm(nivel, student => runDocLevelSteps(nivel, student, true, 0));
       });
       return;
     }
 
-    const saved = loadLevel1Progress();
+    const saved = loadLevelProgress(nivel);
     if(saved){
       const savedDate = new Date(saved.savedAt).toLocaleDateString('pt-PT');
       levelContentEl.innerHTML = `
@@ -1054,26 +1124,28 @@
         </div>
       `;
       document.getElementById('resume-btn').addEventListener('click', () => {
-        runLevel1Steps({ nome: saved.nome, turma: saved.turma }, false, saved.stepIdx);
+        runDocLevelSteps(nivel, { nome: saved.nome, turma: saved.turma }, false, saved.stepIdx);
       });
       document.getElementById('restart-fresh-btn').addEventListener('click', () => {
-        clearLevel1Progress();
-        showLevel1Identification(false);
+        clearLevelProgress(nivel);
+        showIdentificationForm(nivel, student => runDocLevelSteps(nivel, student, false, 0));
       });
       return;
     }
 
-    showLevel1Identification(false);
+    showIdentificationForm(nivel, student => runDocLevelSteps(nivel, student, false, 0));
   }
 
-  function showLevel1Identification(isReview){
-    showIdentificationForm(1, student => runLevel1Steps(student, isReview, 0));
-  }
+  function setupLevel1(){ setupDocLevel(1); }
+  function setupLevel2(){ setupDocLevel(2); }
+  function setupLevel3(){ setupDocLevel(3); }
+  function setupLevel4(){ setupDocLevel(4); }
+  function setupLevel5(){ setupDocLevel(5); }
 
   const CYCLES_PER_DOC = 2; // ciclos completos (copiar→explicar→refletir) antes de poder pedir o documento seguinte
 
-  // Uma pergunta de reflexão diferente para cada um dos 4 momentos (2 documentos × 2 partes),
-  // para os alunos não conseguirem reutilizar sempre a mesma resposta genérica.
+  // Uma pergunta de reflexão diferente em cada momento, para os alunos não
+  // conseguirem reutilizar sempre a mesma resposta genérica. As mesmas 4 em todos os níveis.
   const REFLECT_PROMPTS = [
     'Explica por palavras tuas, sem olhar para o caderno: qual é a ideia principal deste conteúdo?',
     'Dá um exemplo concreto, de desporto, que uses para explicar a importância do que aprendeste ao colega.',
@@ -1081,10 +1153,11 @@
     'Se explicasses isto a um aluno mais novo, que palavra ou ideia confusa evitarias usar?',
   ];
 
-  function buildLevel1Steps(){
+  function buildLevelSteps(nivel){
+    const links = LEVEL_COPY_LINKS[nivel];
     const steps = [];
     let reflectIdx = 0;
-    LEVEL1_COPY_LINKS.forEach((link, idx) => {
+    links.forEach((link, idx) => {
       for(let cycle = 1; cycle <= CYCLES_PER_DOC; cycle++){
         steps.push({ type: 'copy', link, cycle });
         steps.push({ type: 'explain' });
@@ -1095,52 +1168,60 @@
         });
         reflectIdx++;
       }
-      const isLast = idx === LEVEL1_COPY_LINKS.length - 1;
+      const isLast = idx === links.length - 1;
       if(!isLast){
-        steps.push({ type: 'request-next', nextLabel: LEVEL1_COPY_LINKS[idx + 1].label });
+        steps.push({ type: 'request-next', nextLabel: links[idx + 1].label });
       }
     });
+    steps.push({ type: 'project' });
     steps.push({ type: 'quiz' });
     return steps;
   }
 
-  function runLevel1Steps(student, isReview, startStepIdx){
-    activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: 1 };
-    restartCurrentFlow = isReview ? null : () => runLevel1Steps(student, false, 0);
-    const steps = buildLevel1Steps();
+  function runDocLevelSteps(nivel, student, isReview, startStepIdx){
+    activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: nivel };
+    restartCurrentFlow = isReview ? null : () => runDocLevelSteps(nivel, student, false, 0);
+    const steps = buildLevelSteps(nivel);
+    const quiz = getLevelQuiz(nivel);
+    const isLastLevel = nivel === LEVELS.length;
     let stepIdx = startStepIdx || 0;
     let quizResult = null;
     showStep();
 
     function showStep(){
       removeCopyActionbar();
-      if(!isReview) saveLevel1Progress(student, stepIdx);
+      if(!isReview) saveLevelProgress(nivel, student, stepIdx);
       const step = steps[stepIdx];
       if(!step){
         // Chegámos ao fim dos passos (depois do quiz) — mostra a recapitulação.
         activeIdentSession = null;
         restartCurrentFlow = null;
         if(!isReview){
-          clearLevel1Progress();
-          sendMissaoResultado(1, student, quizResult);
+          clearLevelProgress(nivel);
+          sendMissaoResultado(nivel, student, quizResult);
         }
-        levelContentEl.innerHTML = buildRecapHtml(1, 'Concluíste o Nível 1! 🎉 As tuas reflexões foram registadas.', { classify: [], quiz: quizResult });
+        const headline = isLastLevel
+          ? `Concluíste o Nível ${nivel} — e fechaste o círculo da homeostasia que começou no Nível 1! 🎉🏆 As tuas reflexões foram registadas.`
+          : `Concluíste o Nível ${nivel}! 🎉 As tuas reflexões foram registadas.`;
+        levelContentEl.innerHTML = buildRecapHtml(nivel, headline, { classify: [], quiz: quizResult });
         const btn = document.createElement('button');
         btn.className = 'complete-btn';
         btn.style.marginTop = '18px';
-        btn.textContent = isReview ? 'Voltar ao mapa' : 'Concluir Nível 1';
-        btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(1); });
+        btn.textContent = isReview ? 'Voltar ao mapa' : (isLastLevel ? 'Concluir Jogo' : `Concluir Nível ${nivel}`);
+        btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(nivel); });
         levelContentEl.appendChild(btn);
       } else if(step.type === 'copy'){
         renderCopyStep(step.link, step.cycle, () => { stepIdx++; showStep(); });
       } else if(step.type === 'explain'){
         renderExplainStep(() => { stepIdx++; showStep(); });
       } else if(step.type === 'reflect'){
-        renderReflectStep(student, step.momento, step.prompt, () => { stepIdx++; showStep(); });
+        renderReflectStep(nivel, student, step.momento, step.prompt, () => { stepIdx++; showStep(); });
       } else if(step.type === 'request-next'){
         renderRequestNextStep(step.nextLabel, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'project'){
+        renderProjectStep(nivel, student, () => { stepIdx++; showStep(); });
       } else if(step.type === 'quiz'){
-        runQuizStage(QUIZ_L1, 'Quiz Final do Nível 1', (r) => { quizResult = r; stepIdx++; showStep(); }, 60);
+        runQuizStage(quiz.questions, `Quiz Final do Nível ${nivel}`, (r) => { quizResult = r; stepIdx++; showStep(); }, quiz.time);
       }
     }
   }
@@ -1203,7 +1284,7 @@
     document.getElementById('explain-next-btn').addEventListener('click', onDone);
   }
 
-  function renderReflectStep(student, momento, prompt, onDone){
+  function renderReflectStep(nivel, student, momento, prompt, onDone){
     removeCopyActionbar();
     levelContentEl.innerHTML = `
       <div class="stage-title">Reflexão</div>
@@ -1223,10 +1304,109 @@
         tipo: 'Reflexão',
         nome: student.nome,
         turma: student.turma,
-        nivel: 1,
+        nivel: nivel,
         momento: momento,
         texto: texto,
       });
+      onDone();
+    });
+  }
+
+  // ===== PROJETO FINAL DO NÍVEL (antes do quiz) =====
+  const PROJECT_MINUTES = 30; // tempo previsto — só aviso, o aluno pode enviar depois
+
+  function projectDraftKey(nivel){ return 'missao6_l' + nivel + '_projeto'; }
+
+  function loadProjectDraft(nivel){
+    try {
+      const raw = localStorage.getItem(projectDraftKey(nivel));
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+
+  function saveProjectDraft(nivel, draft){
+    try { localStorage.setItem(projectDraftKey(nivel), JSON.stringify(draft)); } catch(e) { /* ignora */ }
+  }
+
+  function clearProjectDraft(nivel){
+    try { localStorage.removeItem(projectDraftKey(nivel)); } catch(e) { /* ignora */ }
+  }
+
+  function renderProjectStep(nivel, student, onDone){
+    removeCopyActionbar();
+    // O texto e a hora de início ficam guardados neste computador: se o aluno
+    // sair, fechar ou recarregar, volta ao mesmo texto e o relógio não recomeça.
+    const draft = loadProjectDraft(nivel) || { proposta: '', material: '', startedAt: Date.now() };
+    saveProjectDraft(nivel, draft);
+    if(activeIdentSession) activeIdentSession.projectMode = true;
+
+    levelContentEl.innerHTML = `
+      <div class="stage-title">Projeto do Nível ${nivel}</div>
+      <div class="placeholder-card project-task" style="border-style:solid;color:var(--text);">
+        <strong>Pensa num projeto de como se pode ensinar estes conhecimentos aos colegas de forma a não perderem o interesse e aplicarem o que aprendem no dia-a-dia.</strong><br><br>
+        Este trabalho é individual.<br>
+        Deves mostrar que refletiste sobre a tarefa e propor algo que seja possível fazer.
+      </div>
+      <div class="stage-progress" style="margin-top:14px;">1.º Faz primeiro um rascunho no teu caderno.<br>2.º Depois passa a versão final para aqui.</div>
+      <div class="copy-timer" id="project-timer">${PROJECT_MINUTES}:00</div>
+      <div class="project-hint" id="project-hint">Tens ${PROJECT_MINUTES} minutos para este projeto.</div>
+      <label class="project-label" for="project-text">A tua proposta de projeto</label>
+      <textarea class="reflect-textarea" id="project-text" style="min-height:220px;" placeholder="Escreve aqui a tua proposta..."></textarea>
+      <label class="project-label" for="project-material">Que material precisas para o teu projeto?</label>
+      <textarea class="reflect-textarea" id="project-material" placeholder="Ex.: cartolinas, computador, bola, cronómetro..."></textarea>
+      <div class="id-error" id="project-error"></div>
+      <button class="complete-btn" id="project-send-btn">Enviar projeto</button>
+    `;
+
+    const textEl = document.getElementById('project-text');
+    const materialEl = document.getElementById('project-material');
+    const timerEl = document.getElementById('project-timer');
+    const hintEl = document.getElementById('project-hint');
+    textEl.value = draft.proposta;
+    materialEl.value = draft.material;
+
+    const persist = () => {
+      draft.proposta = textEl.value;
+      draft.material = materialEl.value;
+      saveProjectDraft(nivel, draft);
+    };
+    textEl.addEventListener('input', persist);
+    materialEl.addEventListener('input', persist);
+
+    function tick(){
+      if(!document.body.contains(timerEl)){ clearInterval(timerId); return; }
+      const left = Math.max(0, PROJECT_MINUTES * 60 - Math.floor((Date.now() - draft.startedAt) / 1000));
+      const m = String(Math.floor(left / 60)).padStart(2, '0');
+      const s = String(left % 60).padStart(2, '0');
+      timerEl.textContent = m + ':' + s;
+      if(left <= 0){
+        hintEl.textContent = 'O tempo previsto terminou. Envia o teu projeto assim que possível.';
+        hintEl.classList.add('late');
+      }
+    }
+    const timerId = setInterval(tick, 1000);
+    tick();
+
+    document.getElementById('project-send-btn').addEventListener('click', () => {
+      const proposta = textEl.value.trim();
+      const material = materialEl.value.trim();
+      const errorEl = document.getElementById('project-error');
+      if(!proposta || !material){
+        errorEl.textContent = 'Preenche a proposta e o material antes de enviar.';
+        return;
+      }
+      clearInterval(timerId);
+      sendMissaoEvent({
+        tipo: 'Projeto',
+        nome: student.nome,
+        turma: student.turma,
+        nivel: nivel,
+        momento: 'Projeto final do nível',
+        texto: proposta,
+        material: material,
+      });
+      clearProjectDraft(nivel);
+      if(activeIdentSession) activeIdentSession.projectMode = false;
       onDone();
     });
   }
@@ -1441,198 +1621,6 @@
       };
       checkBtn.addEventListener('click', check);
       input.addEventListener('keydown', e => { if(e.key === 'Enter') check(); });
-    }
-  }
-
-  function setupLevel2(){
-    completeBtn.style.display = 'none';
-    testTag.style.display = 'none';
-    renderHelpLinks(2);
-    activeIdentSession = null;
-    restartCurrentFlow = null;
-
-    if(state.status[2] === 'completed'){
-      levelContentEl.innerHTML = `
-        <div class="placeholder-card">Já concluíste este nível — bom trabalho! Podes rever os desafios para consolidar a matéria, sem perder pontos.</div>
-        <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
-      `;
-      document.getElementById('review-btn').addEventListener('click', () => runLevel2Flow(null, true));
-      return;
-    }
-    showIdentificationForm(2, student => runLevel2Flow(student, false));
-  }
-
-  function runLevel2Flow(student, isReview){
-    activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: 2 };
-    restartCurrentFlow = isReview ? null : () => runLevel2Flow(student, false);
-    let stage = 0;
-    const resultados = { classify: [], quiz: null };
-    showStage();
-
-    function showStage(){
-      if(stage === 0){
-        runClassifyStage(CLASSIFY_CIRC, 'Grande Circulação', 'Pequena Circulação', 'grande', 'pequena', 'Parte 1 de 4 — Grande vs Pequena Circulação', (r) => { resultados.classify.push(r); stage = 1; showStage(); });
-      } else if(stage === 1){
-        runClassifyStage(CLASSIFY_VESSELS, 'Artéria', 'Veia', 'arteria', 'veia', 'Parte 2 de 4 — Artérias vs Veias', (r) => { resultados.classify.push(r); stage = 2; showStage(); });
-      } else if(stage === 2){
-        runClassifyStage(CLASSIFY_DC, 'Aumenta', 'Diminui', 'aumenta', 'diminui', 'Parte 3 de 4 — O que Aumenta ou Diminui o Débito Cardíaco?', (r) => { resultados.classify.push(r); stage = 3; showStage(); });
-      } else if(stage === 3){
-        runQuizStage(QUIZ_L2, 'Parte 4 de 4 — Quiz Cronometrado', (r) => { resultados.quiz = r; stage = 4; showStage(); }, 75);
-      } else {
-        activeIdentSession = null;
-        restartCurrentFlow = null;
-        if(!isReview) sendMissaoResultado(2, student, resultados.quiz);
-        levelContentEl.innerHTML = buildRecapHtml(2, 'Concluíste as 4 partes do Nível 2! 🎉', resultados);
-        const btn = document.createElement('button');
-        btn.className = 'complete-btn';
-        btn.style.marginTop = '18px';
-        btn.textContent = isReview ? 'Voltar ao mapa' : 'Concluir Nível 2';
-        btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(2); });
-        levelContentEl.appendChild(btn);
-      }
-    }
-  }
-
-  function setupLevel3(){
-    completeBtn.style.display = 'none';
-    testTag.style.display = 'none';
-    renderHelpLinks(3);
-    activeIdentSession = null;
-    restartCurrentFlow = null;
-
-    if(state.status[3] === 'completed'){
-      levelContentEl.innerHTML = `
-        <div class="placeholder-card">Já concluíste este nível — bom trabalho! Podes rever os desafios para consolidar a matéria, sem perder pontos.</div>
-        <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
-      `;
-      document.getElementById('review-btn').addEventListener('click', () => runLevel3Flow(null, true));
-      return;
-    }
-    showIdentificationForm(3, student => runLevel3Flow(student, false));
-  }
-
-  function runLevel3Flow(student, isReview){
-    activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: 3 };
-    restartCurrentFlow = isReview ? null : () => runLevel3Flow(student, false);
-    let stage = 0;
-    const resultados = { classify: [], quiz: null };
-    showStage();
-
-    function showStage(){
-      if(stage === 0){
-        runClassifyStage(CLASSIFY_ZONE, 'Zona Condutora', 'Zona de Trocas', 'condutora', 'trocas', 'Parte 1 de 4 — Zona Condutora vs Zona de Trocas Gasosas', (r) => { resultados.classify.push(r); stage = 1; showStage(); });
-      } else if(stage === 1){
-        runClassifyStage(CLASSIFY_MECH, 'Eupneica', 'Forçada', 'eupneica', 'forcada', 'Parte 2 de 4 — Respiração Eupneica vs Forçada', (r) => { resultados.classify.push(r); stage = 2; showStage(); });
-      } else if(stage === 2){
-        runClassifyStage(CLASSIFY_VENT, 'Aumenta', 'Diminui', 'aumenta', 'diminui', 'Parte 3 de 4 — O que Aumenta ou Diminui a Ventilação Pulmonar?', (r) => { resultados.classify.push(r); stage = 3; showStage(); });
-      } else if(stage === 3){
-        runQuizStage(QUIZ_L3, 'Parte 4 de 4 — Quiz Cronometrado', (r) => { resultados.quiz = r; stage = 4; showStage(); }, 75);
-      } else {
-        activeIdentSession = null;
-        restartCurrentFlow = null;
-        if(!isReview) sendMissaoResultado(3, student, resultados.quiz);
-        levelContentEl.innerHTML = buildRecapHtml(3, 'Concluíste as 4 partes do Nível 3! 🎉', resultados);
-        const btn = document.createElement('button');
-        btn.className = 'complete-btn';
-        btn.style.marginTop = '18px';
-        btn.textContent = isReview ? 'Voltar ao mapa' : 'Concluir Nível 3';
-        btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(3); });
-        levelContentEl.appendChild(btn);
-      }
-    }
-  }
-
-  function setupLevel4(){
-    completeBtn.style.display = 'none';
-    testTag.style.display = 'none';
-    renderHelpLinks(4);
-    activeIdentSession = null;
-    restartCurrentFlow = null;
-
-    if(state.status[4] === 'completed'){
-      levelContentEl.innerHTML = `
-        <div class="placeholder-card">Já concluíste este nível — bom trabalho! Podes rever os desafios para consolidar a matéria, sem perder pontos.</div>
-        <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
-      `;
-      document.getElementById('review-btn').addEventListener('click', () => runLevel4Flow(null, true));
-      return;
-    }
-    showIdentificationForm(4, student => runLevel4Flow(student, false));
-  }
-
-  function runLevel4Flow(student, isReview){
-    activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: 4 };
-    restartCurrentFlow = isReview ? null : () => runLevel4Flow(student, false);
-    let stage = 0;
-    const resultados = { classify: [], quiz: null };
-    showStage();
-
-    function showStage(){
-      if(stage === 0){
-        runClassifyStage(CLASSIFY_NUTRIENTS, 'Macronutriente', 'Micronutriente', 'macro', 'micro', 'Parte 1 de 3 — Macronutrientes vs Micronutrientes', (r) => { resultados.classify.push(r); stage = 1; showStage(); });
-      } else if(stage === 1){
-        runClassifyStage(CLASSIFY_TUBE, 'Tubo Digestivo', 'Órgão Anexo', 'tubo', 'anexo', 'Parte 2 de 3 — Tubo Digestivo vs Órgãos Anexos', (r) => { resultados.classify.push(r); stage = 2; showStage(); });
-      } else if(stage === 2){
-        runQuizStage(QUIZ_L4, 'Parte 3 de 3 — Quiz Cronometrado', (r) => { resultados.quiz = r; stage = 3; showStage(); }, 75);
-      } else {
-        activeIdentSession = null;
-        restartCurrentFlow = null;
-        if(!isReview) sendMissaoResultado(4, student, resultados.quiz);
-        levelContentEl.innerHTML = buildRecapHtml(4, 'Concluíste as 3 partes do Nível 4! 🎉', resultados);
-        const btn = document.createElement('button');
-        btn.className = 'complete-btn';
-        btn.style.marginTop = '18px';
-        btn.textContent = isReview ? 'Voltar ao mapa' : 'Concluir Nível 4';
-        btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(4); });
-        levelContentEl.appendChild(btn);
-      }
-    }
-  }
-
-  function setupLevel5(){
-    completeBtn.style.display = 'none';
-    testTag.style.display = 'none';
-    renderHelpLinks(5);
-    activeIdentSession = null;
-    restartCurrentFlow = null;
-
-    if(state.status[5] === 'completed'){
-      levelContentEl.innerHTML = `
-        <div class="placeholder-card">Já concluíste o jogo — parabéns! Podes rever os desafios para consolidar a matéria, sem perder pontos.</div>
-        <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
-      `;
-      document.getElementById('review-btn').addEventListener('click', () => runLevel5Flow(null, true));
-      return;
-    }
-    showIdentificationForm(5, student => runLevel5Flow(student, false));
-  }
-
-  function runLevel5Flow(student, isReview){
-    activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: 5 };
-    restartCurrentFlow = isReview ? null : () => runLevel5Flow(student, false);
-    let stage = 0;
-    const resultados = { classify: [], quiz: null };
-    showStage();
-
-    function showStage(){
-      if(stage === 0){
-        runClassifyStage(CLASSIFY_TEMP, 'Hipertermia', 'Hipotermia', 'hiper', 'hipo', 'Parte 1 de 3 — Respostas à Hipertermia vs Hipotermia', (r) => { resultados.classify.push(r); stage = 1; showStage(); });
-      } else if(stage === 1){
-        runClassifyStage(CLASSIFY_HIDRICO, 'Recetor de Osmolaridade', 'Recetor de Volume', 'osmo', 'volume', 'Parte 2 de 3 — Recetores de Osmolaridade vs de Volume', (r) => { resultados.classify.push(r); stage = 2; showStage(); });
-      } else if(stage === 2){
-        runQuizStage(QUIZ_L5, 'Parte 3 de 3 — Quiz Cronometrado', (r) => { resultados.quiz = r; stage = 3; showStage(); }, 75);
-      } else {
-        activeIdentSession = null;
-        restartCurrentFlow = null;
-        if(!isReview) sendMissaoResultado(5, student, resultados.quiz);
-        levelContentEl.innerHTML = buildRecapHtml(5, 'Concluíste as 3 partes do Nível 5 — e fechaste o círculo da homeostasia que começou no Nível 1! 🎉🏆', resultados);
-        const btn = document.createElement('button');
-        btn.className = 'complete-btn';
-        btn.style.marginTop = '18px';
-        btn.textContent = isReview ? 'Voltar ao mapa' : 'Concluir Jogo';
-        btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(5); });
-        levelContentEl.appendChild(btn);
-      }
     }
   }
 
