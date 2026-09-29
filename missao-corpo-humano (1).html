@@ -965,7 +965,7 @@
         projectExitOverlay.classList.add('open');
         return;
       }
-      restartOkBtn.textContent = 'OK, recomeçar o Nível ' + activeIdentSession.nivel;
+      restartOkBtn.textContent = activeIdentSession.restartLabel || ('OK, recomeçar o Nível ' + activeIdentSession.nivel);
       sendMissaoEvent({
         tipo: 'Saída do separador — reinício',
         nome: activeIdentSession.nome,
@@ -1158,19 +1158,31 @@
     const steps = [];
     let reflectIdx = 0;
     links.forEach((link, idx) => {
+      // docStart = passo onde começa este documento. Se o aluno sair do separador
+      // durante este documento, recomeça AQUI (e não no 1.º documento do nível).
+      const docStart = steps.length;
+      const docLabel = link.label;
       for(let cycle = 1; cycle <= CYCLES_PER_DOC; cycle++){
-        steps.push({ type: 'copy', link, cycle });
-        steps.push({ type: 'explain' });
+        steps.push({ type: 'copy', link, cycle, docStart, docLabel });
+        steps.push({ type: 'explain', docStart, docLabel });
         steps.push({
           type: 'reflect',
           momento: `${link.label} (parte ${cycle}/${CYCLES_PER_DOC})`,
           prompt: REFLECT_PROMPTS[reflectIdx % REFLECT_PROMPTS.length],
+          docStart,
+          docLabel,
         });
         reflectIdx++;
       }
       const isLast = idx === links.length - 1;
       if(!isLast){
-        steps.push({ type: 'request-next', nextLabel: links[idx + 1].label });
+        // O documento atual já está concluído: sair aqui recomeça no documento seguinte.
+        steps.push({
+          type: 'request-next',
+          nextLabel: links[idx + 1].label,
+          docStart: steps.length + 1,
+          docLabel: links[idx + 1].label,
+        });
       }
     });
     steps.push({ type: 'project' });
@@ -1180,8 +1192,14 @@
 
   function runDocLevelSteps(nivel, student, isReview, startStepIdx){
     activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: nivel };
-    restartCurrentFlow = isReview ? null : () => runDocLevelSteps(nivel, student, false, 0);
     const steps = buildLevelSteps(nivel);
+    // Nos documentos, recomeça no início do documento em que o aluno está;
+    // no resto (projeto/quiz), mantém-se o recomeço do nível desde o início.
+    restartCurrentFlow = isReview ? null : () => {
+      const st = steps[stepIdx];
+      const start = (st && st.docStart !== undefined) ? st.docStart : 0;
+      runDocLevelSteps(nivel, student, false, start);
+    };
     const quiz = getLevelQuiz(nivel);
     const isLastLevel = nivel === LEVELS.length;
     let stepIdx = startStepIdx || 0;
@@ -1192,6 +1210,11 @@
       removeCopyActionbar();
       if(!isReview) saveLevelProgress(nivel, student, stepIdx);
       const step = steps[stepIdx];
+      if(activeIdentSession){
+        activeIdentSession.restartLabel = (step && step.docStart !== undefined)
+          ? 'OK, recomeçar o documento "' + step.docLabel + '"'
+          : 'OK, recomeçar o Nível ' + nivel;
+      }
       if(!step){
         // Chegámos ao fim dos passos (depois do quiz) — mostra a recapitulação.
         activeIdentSession = null;
