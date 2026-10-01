@@ -656,12 +656,18 @@
   ];
 
   const QUIZ_L1 = [
-    { q:'O que é uma glândula endócrina?', options:['Um órgão que produz hormonas e as liberta diretamente no sangue','Um músculo que se contrai por estímulo elétrico','Um vaso sanguíneo de grande calibre','Um recetor sensorial da pele'], correct:0 },
-    { q:'O que é uma hormona?', options:['Um tipo de célula nervosa','Um mensageiro químico transportado pelo sangue até um órgão-alvo','Um recetor localizado no cérebro','Um tipo de vaso linfático'], correct:1 },
-    { q:'O que é o "órgão-alvo" de uma hormona?', options:['O órgão que produz a hormona','Qualquer órgão do corpo, sem exceção','O órgão ou tecido com recetores específicos que respondem a essa hormona','O órgão que elimina a hormona do corpo'], correct:2 },
-    { q:'Porque é a hipófise chamada "glândula mestra"?', options:['Porque é a maior glândula do corpo','Porque regula a atividade de várias outras glândulas endócrinas','Porque só atua durante o sono','Porque não depende do cérebro'], correct:1 },
-    { q:'Qual destas características pertence à regulação NERVOSA (e não à endócrina)?', options:['Efeito lento e duradouro','Mensageiro transportado pelo sangue','Resposta rápida e de curta duração','Ação generalizada em todo o corpo'], correct:2 },
-    { q:'Antes de uma competição importante, um atleta sente o coração acelerar e as mãos a tremer ligeiramente, mesmo sem ainda ter começado a competir. Isto deve-se sobretudo à ação de:', options:['Sistema nervoso simpático e libertação de adrenalina','Sistema nervoso parassimpático','Sistema digestivo','Sistema urinário'], correct:0 },
+    { q:'O que é o meio interno?', options:['O ambiente em que o organismo está, por exemplo dentro de uma sala.','Tudo o que está dentro da pele, células e líquido intersticial.','A temperatura que envolve o corpo.','Todas as estruturas que contactam através da pele.'], correct:1 },
+    { q:'Num jogo de futebol com 35 °C, qual destas é uma alteração do meio EXTERNO?', options:['A temperatura elevada do ar','A subida da temperatura do sangue','A descida da glicose no sangue','A perda de água do plasma'], correct:0 },
+    { q:'O que é a homeostasia?', options:['A capacidade de correr sem cansaço','A capacidade do organismo manter o meio interno relativamente constante, apesar das variações do meio externo','O aumento da temperatura durante o exercício','A produção de energia nos músculos'], correct:1 },
+    { q:'Numa corrida de 10 km, a temperatura do corpo mantém-se perto dos 37 °C porque o atleta transpira. Isto é um exemplo de:', options:['Uma alteração do meio externo','Homeostasia','Uma falha do sistema nervoso','Uma resposta do sistema hormonal'], correct:1 },
+    { q:'Num treino longo, a glicose no sangue desce. O pâncreas liberta substâncias que resultam na subida da glicose. Este mecanismo descreve que tipo de mecanismo?', options:['Homeostasia','Sistema Nervoso Autónomo Parassimpático','Reflexo voluntário','Sistema Nervoso Somático'], correct:0 },
+    { q:'Porque é útil a um desportista conhecer a homeostasia?', options:['Para treinar sem nunca beber água','Para perceber porque deve hidratar-se, alimentar-se e fazer pausas, ajudando o corpo a manter o equilíbrio','Para aumentar a temperatura do corpo','Para incluir a homeostasia no planeamento do seu treino.'], correct:1 },
+    { q:'Um guarda-redes defende um penálti reagindo em frações de segundo. Que regulação permite uma resposta tão rápida?', options:['Nervosa','Endócrina','A produção de químicos pelo sistema hormonal','Sistema Nervoso Autónomo Simpático'], correct:0 },
+    { q:'Num sprint, a adrenalina libertada atua no coração e aumenta a frequência cardíaca. Neste exemplo, o coração é:', options:['A glândula endócrina','O órgão-alvo','O centro nervoso','O meio externo'], correct:1 },
+    { q:'O pâncreas liberta glucagon diretamente para o sangue. Por isso, o pâncreas atua como:', options:['Um músculo','Uma glândula endócrina','Um neurónio','Um vaso sanguíneo'], correct:1 },
+    { q:'Antes de uma competição importante, um atleta sente o coração acelerar e as mãos a tremer ligeiramente, mesmo sem ainda ter começado a competir. Isto deve-se sobretudo à ação de:', options:['Sistema Nervoso Simpático e libertação de adrenalina','Sistema Nervoso Parassimpático e libertação de adrenalina','Sistema Nervoso Somático','Sistema Nervoso Periférico'], correct:0 },
+    { q:'Depois do treino, deitado a descansar, a frequência cardíaca volta ao normal. Isto deve-se sobretudo ao:', options:['Sistema nervoso simpático','Sistema nervoso parassimpático','Aumento de adrenalina','Meio externo'], correct:1 },
+    { q:'Depois de um final de jogo muito tenso, o coração continua acelerado durante alguns minutos. Isto explica-se porque:', options:['A regulação nervosa é lenta','A adrenalina (regulação endócrina) tem um efeito mais lento a desaparecer e mais duradouro','O coração deixou de receber ordens','O meio externo ficou mais quente'], correct:1 },
   ];
 
   const LEVEL_LINKS = {
@@ -1081,7 +1087,7 @@
   // Quiz final e tempo (em segundos) de cada nível.
   function getLevelQuiz(nivel){
     const quizzes = {
-      1: { questions: QUIZ_L1, time: 60 },
+      1: { questions: QUIZ_L1, time: 240 }, // 12 perguntas de aplicação — 4 minutos
       2: { questions: QUIZ_L2, time: 75 },
       3: { questions: QUIZ_L3, time: 75 },
       4: { questions: QUIZ_L4, time: 75 },
@@ -1186,7 +1192,8 @@
       }
     });
     steps.push({ type: 'project' });
-    steps.push({ type: 'quiz' });
+    // Sair durante o quiz recomeça só o quiz (os momentos de cópia já estão feitos).
+    steps.push({ type: 'quiz', quizStart: steps.length });
     return steps;
   }
 
@@ -1194,10 +1201,12 @@
     activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: nivel };
     const steps = buildLevelSteps(nivel);
     // Nos documentos, recomeça no início do documento em que o aluno está;
-    // no resto (projeto/quiz), mantém-se o recomeço do nível desde o início.
+    // no quiz, recomeça só o quiz.
     restartCurrentFlow = isReview ? null : () => {
       const st = steps[stepIdx];
-      const start = (st && st.docStart !== undefined) ? st.docStart : 0;
+      let start = 0;
+      if(st && st.docStart !== undefined) start = st.docStart;
+      else if(st && st.quizStart !== undefined) start = st.quizStart;
       runDocLevelSteps(nivel, student, false, start);
     };
     const quiz = getLevelQuiz(nivel);
@@ -1211,9 +1220,9 @@
       if(!isReview) saveLevelProgress(nivel, student, stepIdx);
       const step = steps[stepIdx];
       if(activeIdentSession){
-        activeIdentSession.restartLabel = (step && step.docStart !== undefined)
-          ? 'OK, recomeçar o documento "' + step.docLabel + '"'
-          : 'OK, recomeçar o Nível ' + nivel;
+        if(step && step.docStart !== undefined) activeIdentSession.restartLabel = 'OK, recomeçar o documento "' + step.docLabel + '"';
+        else if(step && step.quizStart !== undefined) activeIdentSession.restartLabel = 'OK, recomeçar o quiz';
+        else activeIdentSession.restartLabel = 'OK, recomeçar o Nível ' + nivel;
       }
       if(!step){
         // Chegámos ao fim dos passos (depois do quiz) — mostra a recapitulação.
@@ -1395,6 +1404,21 @@
     };
     textEl.addEventListener('input', persist);
     materialEl.addEventListener('input', persist);
+
+    // Não é permitido colar texto no projeto (teclado, menu do botão direito ou arrastar).
+    const blockPaste = (e) => {
+      e.preventDefault();
+      document.getElementById('project-error').textContent = 'Pois… colar não dá! 😉 Aqui tens mesmo de escrever palavra por palavra — são as tuas ideias que contam.';
+    };
+    [textEl, materialEl].forEach(el => {
+      el.addEventListener('paste', blockPaste);
+      el.addEventListener('drop', blockPaste);
+      el.addEventListener('beforeinput', (e) => {
+        if(e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop' || e.inputType === 'insertFromPasteAsQuotation'){
+          blockPaste(e);
+        }
+      });
+    });
 
     function tick(){
       if(!document.body.contains(timerEl)){ clearInterval(timerId); return; }
