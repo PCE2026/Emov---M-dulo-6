@@ -372,6 +372,7 @@
   .quiz-opt.wrong{ border-color:var(--danger) !important; color:var(--danger) !important; }
   .opt-btn.correct{ border-color:var(--ok) !important; color:var(--ok) !important; }
   .opt-btn.wrong{ border-color:var(--danger) !important; color:var(--danger) !important; }
+  .quiz-opt.chosen{ border:2px solid var(--signal); background:var(--signal-dim); color:var(--text); }
 
   /* identificação */
   .id-form label{ display:block; font-size:0.8rem; color:var(--text-dim); margin:14px 0 6px; }
@@ -1075,7 +1076,7 @@
     }
     return `
       <div class="placeholder-card" style="border-style:solid;border-color:var(--ok);color:var(--text);">
-        ${headline}<br>Ganhaste <strong>${lvl.basePoints} pontos</strong>.
+        ${headline}
       </div>
       <div class="recap-summary">${rows}</div>
     `;
@@ -1428,9 +1429,7 @@
           markLevelCompleted(nivel);
           sendMissaoResultado(nivel, student, quizResult);
         }
-        const headline = isLastLevel
-          ? `Concluíste o Nível ${nivel} — e fechaste o círculo da homeostasia que começou no Nível 1! 🎉🏆 As tuas reflexões foram registadas.`
-          : `Concluíste o Nível ${nivel}! 🎉 As tuas reflexões foram registadas.`;
+        const headline = `Concluíste o ${nivel}.º nível. A tua classificação vai depender das tuas reflexões, do projeto e do quiz.`;
         levelContentEl.innerHTML = buildRecapHtml(nivel, headline, { classify: [], quiz: quizResult });
         const btn = document.createElement('button');
         btn.className = 'complete-btn';
@@ -1794,13 +1793,10 @@
       `;
       const opts = levelContentEl.querySelectorAll('.quiz-opt');
 
+      // Sem feedback de certo/errado durante o quiz: só marca a opção escolhida.
       function paint(){
         opts.forEach((b, i) => {
-          b.classList.remove('correct','wrong');
-          if(answers[idx] !== null){
-            if(i === q.correct) b.classList.add('correct');
-            if(i === answers[idx] && answers[idx] !== q.correct) b.classList.add('wrong');
-          }
+          b.classList.toggle('chosen', answers[idx] === i);
         });
       }
       paint();
