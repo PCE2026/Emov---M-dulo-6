@@ -380,6 +380,22 @@
     color:var(--text); border-radius:10px; padding:12px; font-size:0.95rem; font-family:'Inter',sans-serif;
   }
   .id-form input:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
+
+  /* ecrã de entrada (nome e turma ao abrir a aplicação) */
+  .login-screen{
+    position:fixed; inset:0; z-index:40; background:var(--bg-0);
+    display:none; align-items:center; justify-content:center; padding:22px; overflow-y:auto;
+  }
+  .login-screen.open{ display:flex; }
+  .login-card{ width:100%; max-width:420px; }
+  .login-card h2{ font-family:'Fraunces',serif; font-size:1.6rem; margin:0 0 6px; color:var(--text); }
+  .login-card .login-sub{ color:var(--text-dim); font-size:0.92rem; margin:0 0 8px; line-height:1.5; }
+  .login-msg{ font-size:0.85rem; color:var(--text-dim); margin-top:12px; min-height:1.2em; line-height:1.5; }
+  .student-tag{ font-size:0.78rem; color:var(--text-dim); margin-top:6px; }
+  .student-tag button{
+    background:none; border:none; padding:0; color:var(--signal); font:inherit;
+    text-decoration:underline; cursor:pointer;
+  }
   .id-error{ color:var(--danger); font-size:0.82rem; margin-top:10px; min-height:18px; }
 
   /* incorporação da página + temporizador de cópia */
@@ -501,6 +517,7 @@
   <div class="title-block">
     <h1>Módulo 6</h1>
     <p>Regulação, Circulação, Respiração, Digestão &amp; Equilíbrio Interno</p>
+    <div class="student-tag" id="student-tag"></div>
   </div>
   <div class="score-badge">
     <div class="pts" id="pts-display">0 pts</div>
@@ -578,6 +595,19 @@
     </div>
     <button class="complete-btn" id="complete-btn">Concluir nível</button>
     <span class="test-tag" id="test-tag">[botão temporário para testar o desbloqueio — será substituído pela tarefa real]</span>
+  </div>
+</div>
+
+<div class="login-screen open" id="login-screen">
+  <div class="login-card id-form">
+    <h2>Módulo 6</h2>
+    <p class="login-sub">Escreve o teu nome e a tua turma. Usa sempre o mesmo nome completo, para continuares onde ficaste.</p>
+    <label for="login-nome">Nome</label>
+    <input type="text" id="login-nome" autocomplete="off">
+    <label for="login-turma">Turma</label>
+    <input type="text" id="login-turma" autocomplete="off">
+    <button class="complete-btn" id="login-btn" style="margin-top:18px;">Entrar</button>
+    <div class="login-msg" id="login-msg"></div>
   </div>
 </div>
 
@@ -832,13 +862,16 @@
   ];
 
   const QUIZ_L2 = [
-    { q:'O que é a pressão sistólica?', options:['A pressão no momento em que os ventrículos se contraem','A pressão no momento em que os ventrículos relaxam','A pressão exercida dentro das veias','A pressão do ar nos pulmões'], correct:0 },
-    { q:'O pulso arterial corresponde a:', options:['O som produzido pelo coração a bater','A distensão rítmica da parede arterial provocada pela sístole ventricular','A velocidade do sangue nas veias','A pressão sanguínea nos capilares'], correct:1 },
-    { q:'Qual das seguintes NÃO é um fator que facilita o retorno venoso?', options:['Válvulas venosas','Bomba muscular','Bomba respiratória','Contração do ventrículo esquerdo do coração'], correct:3 },
-    { q:'Que componente do sangue transporta principalmente o oxigénio?', options:['Glóbulos vermelhos (eritrócitos)','Glóbulos brancos (leucócitos)','Plaquetas','Plasma'], correct:0 },
-    { q:'O que acontece, em geral, à frequência cardíaca durante o esforço físico?', options:['Aumenta, para responder às maiores necessidades de oxigénio dos músculos','Diminui sempre, para poupar energia','Mantém-se sempre exatamente igual','Só aumenta em atletas de alta competição'], correct:0 },
-    { q:'A hemóstase é o processo que permite:', options:['Produzir novos glóbulos vermelhos','Regular a temperatura do sangue','Parar uma hemorragia através da coagulação do sangue','Transportar hormonas até ao órgão-alvo'], correct:2 },
-    { q:'Um ciclista bem treinado costuma ter, em repouso, uma frequência cardíaca mais baixa do que uma pessoa sedentária. Isto deve-se sobretudo a:', options:['Um volume sistólico maior, que permite bombear mais sangue por batimento','Um coração mais pequeno','Menos glóbulos vermelhos no sangue','Válvulas venosas menos eficientes'], correct:0 },
+    { q:'Num sprint, os músculos das pernas precisam de mais oxigénio. Que circulação leva o sangue oxigenado do coração até eles?', options:['Pequena circulação','Grande circulação','Circulação linfática','O sangue não leva oxigénio aos músculos; são os pulmões que levam.'], correct:1 },
+    { q:'Ao correr, os músculos das pernas apertam as veias, e as válvulas impedem o sangue de recuar. Isto ajuda:', options:['A pressão sistólica','A coagulação','A pequena circulação','O retorno venoso (o sangue volta ao coração)'], correct:3 },
+    { q:'Porque é melhor trotar devagar no fim do treino do que parar de repente?', options:['Porque a bomba muscular continua a ajudar o sangue a voltar ao coração, evitando tonturas','Porque o coração para de bater','Porque aumenta a temperatura do corpo','Não faz diferença'], correct:0 },
+    { q:'Porque aumenta a frequência cardíaca durante o esforço físico?', options:['Para poupar energia','Para levar mais oxigénio e nutrientes aos músculos','Porque o sangue fica mais frio','Só aumenta em atletas de alta competição'], correct:1 },
+    { q:'Num treino, um atleta tem frequência cardíaca de 150 bpm e volume sistólico de 100 mL. O débito cardíaco (FC × VS) é:', options:['1,5 L/min','250 mL/min','15 L/min','150 L/min'], correct:2 },
+    { q:'Em repouso, um ciclista bem treinado tem frequência cardíaca mais baixa do que uma pessoa sedentária. Isto deve-se sobretudo a:', options:['Um volume sistólico maior, que bombeia mais sangue em cada batimento','Um coração mais pequeno','Menos glóbulos vermelhos','Válvulas venosas menos eficientes'], correct:0 },
+    { q:'Alguns atletas treinam em altitude e passam a produzir mais glóbulos vermelhos. Qual é a vantagem?', options:['O sangue fica mais líquido','Coagulam mais depressa','Têm menos pulsação','Transportam mais oxigénio até aos músculos'], correct:3 },
+    { q:'Um jogador cai e faz um corte no joelho. A hemorragia para ao fim de poucos minutos. Que processo aconteceu?', options:['Hematose','Hemóstase (coagulação)','Homeostasia térmica','Retorno venoso'], correct:1 },
+    { q:'Num exercício intenso, a pressão arterial sistólica sobe. A pressão sistólica é a pressão no momento em que:', options:['Os ventrículos relaxam','O sangue entra nas veias','Os ventrículos se contraem','O atleta inspira'], correct:2 },
+    { q:'Porque é útil a um desportista saber medir a frequência cardíaca?', options:['Para controlar a intensidade do treino e ver como recupera','Para saber a temperatura do corpo','Para medir a força dos músculos','Não tem utilidade'], correct:0 },
   ];
 
   // status: 'locked' | 'unlocked' | 'completed'
@@ -985,7 +1018,6 @@
   document.getElementById('restart-ok-btn').addEventListener('click', () => {
     restartOverlay.classList.remove('open');
     if(activeIdentSession){
-      clearLevelProgress(activeIdentSession.nivel);
       clearProjectDraft(activeIdentSession.nivel);
     }
     if(restartCurrentFlow) restartCurrentFlow();
@@ -1049,32 +1081,206 @@
     `;
   }
 
-  // ===== PERSISTÊNCIA LOCAL (mesmo Chromebook) — permite retomar no dia seguinte, em qualquer nível =====
-  function levelStorageKey(nivel){
-    return 'missao6_l' + nivel + '_progress';
+  // ===== ALUNO E PROGRESSO (guardado na aba "Progresso" da folha + cópia neste computador) =====
+  // O aluno identifica-se ao abrir a aplicação. Cada passo é registado na folha,
+  // para que, em qualquer computador, volte exatamente ao sítio onde ficou.
+  let currentStudent = null; // { nome, turma, chave }
+  const progress = { nivelAtual: null, passo: null, onde: '', tipoPasso: null };
+  let progressSyncTimer = null;
+  // Identifica esta abertura da aplicação + contador de envios: a folha usa isto para
+  // ignorar um registo atrasado desta mesma sessão, sem depender do relógio do computador.
+  const SESSAO_ID = Math.random().toString(36).slice(2, 10);
+  let progressSeq = 0;
+
+  function normalizarTexto(s){
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
   }
 
-  function saveLevelProgress(nivel, student, stepIdx){
-    try {
-      localStorage.setItem(levelStorageKey(nivel), JSON.stringify({
-        nome: student.nome,
-        turma: student.turma,
-        stepIdx: stepIdx,
-        savedAt: Date.now(),
-      }));
-    } catch(e) { /* localStorage indisponível — segue sem guardar */ }
+  function chaveAluno(nome, turma){
+    return normalizarTexto(nome) + '|' + normalizarTexto(turma).replace(/\s/g, '');
   }
 
-  function loadLevelProgress(nivel){
+  function localRecordKey(chave){ return 'missao6_aluno_' + chave; }
+
+  function loadLocalRecord(chave){
     try {
-      const raw = localStorage.getItem(levelStorageKey(nivel));
+      const raw = localStorage.getItem(localRecordKey(chave));
       return raw ? JSON.parse(raw) : null;
     } catch(e) { return null; }
   }
 
-  function clearLevelProgress(nivel){
-    try { localStorage.removeItem(levelStorageKey(nivel)); } catch(e) { /* ignora */ }
+  function describeStep(step){
+    if(!step) return '';
+    if(step.type === 'copy') return `Documento "${step.docLabel}" — parte ${step.cycle}/${CYCLES_PER_DOC}: copiar para o caderno`;
+    if(step.type === 'explain') return `Documento "${step.docLabel}": explicar ao colega`;
+    if(step.type === 'reflect') return `Reflexão — ${step.momento}`;
+    if(step.type === 'request-next') return `Pedir documento seguinte (${step.nextLabel})`;
+    if(step.type === 'project') return 'Projeto';
+    if(step.type === 'quiz') return 'Quiz final';
+    return '';
   }
+
+  function completedLevelsList(){
+    return LEVELS.filter(l => state.status[l.id] === 'completed').map(l => l.id);
+  }
+
+  // Envia o sítio atual do aluno para a folha (e guarda uma cópia neste computador).
+  function sendProgress(){
+    if(!currentStudent) return;
+    if(progressSyncTimer){ clearTimeout(progressSyncTimer); progressSyncTimer = null; }
+    let proposta = '', material = '', inicioProjeto = '';
+    if(progress.tipoPasso === 'project' && progress.nivelAtual){
+      const d = loadProjectDraft(progress.nivelAtual);
+      if(d){ proposta = d.proposta || ''; material = d.material || ''; inicioProjeto = d.startedAt || ''; }
+    }
+    const record = {
+      tipo: 'Progresso',
+      nome: currentStudent.nome,
+      turma: currentStudent.turma,
+      chave: currentStudent.chave,
+      nivelAtual: progress.nivelAtual || '',
+      passo: (progress.passo === null || progress.passo === undefined) ? '' : progress.passo,
+      onde: progress.onde || '',
+      concluidos: completedLevelsList().join(', '),
+      pontos: state.points,
+      proposta, material, inicioProjeto,
+      sessao: SESSAO_ID,
+      seq: ++progressSeq,
+      carimbo: Date.now(),
+    };
+    try { localStorage.setItem(localRecordKey(currentStudent.chave), JSON.stringify(record)); } catch(e) { /* ignora */ }
+    if(!MISSAO_SCRIPT_URL || MISSAO_SCRIPT_URL === 'COLOCAR_AQUI_O_URL_DO_SCRIPT') return;
+    fetch(MISSAO_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(record),
+      keepalive: true,
+    }).catch(() => { /* melhor esforço — fica a cópia neste computador */ });
+  }
+
+  // Durante a escrita do projeto, envia o rascunho alguns segundos depois de o aluno parar de escrever.
+  function scheduleProgressSync(){
+    if(progressSyncTimer) clearTimeout(progressSyncTimer);
+    progressSyncTimer = setTimeout(sendProgress, 3000);
+  }
+
+  // Se o aluno sair ou fechar a página com um envio pendente, envia logo.
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden' && progressSyncTimer) sendProgress();
+  });
+  window.addEventListener('pagehide', () => { if(progressSyncTimer) sendProgress(); });
+
+  function saveLevelProgress(nivel, stepIdx, step){
+    progress.nivelAtual = nivel;
+    progress.passo = stepIdx;
+    progress.onde = describeStep(step);
+    progress.tipoPasso = step ? step.type : null;
+    sendProgress();
+  }
+
+  // Marca o nível como concluído (pontos, mapa e folha) logo na recapitulação,
+  // para não se perder se o aluno fechar antes de carregar em "Concluir".
+  function markLevelCompleted(id){
+    if(state.status[id] !== 'completed'){
+      state.status[id] = 'completed';
+      state.points += LEVELS.find(l => l.id === id).basePoints;
+      if(id < LEVELS.length && state.status[id + 1] === 'locked'){
+        state.status[id + 1] = 'unlocked';
+      }
+      render();
+    }
+    clearProjectDraft(id);
+    progress.nivelAtual = null;
+    progress.passo = null;
+    progress.onde = 'Nível ' + id + ' concluído';
+    progress.tipoPasso = null;
+    sendProgress();
+  }
+
+  async function fetchRemoteProgress(chave){
+    if(!MISSAO_SCRIPT_URL || MISSAO_SCRIPT_URL === 'COLOCAR_AQUI_O_URL_DO_SCRIPT') return { ok: false };
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const r = await fetch(MISSAO_SCRIPT_URL + '?acao=progresso&chave=' + encodeURIComponent(chave), { signal: ctrl.signal });
+      const j = await r.json();
+      return { ok: true, rec: j && j.encontrado ? j : null };
+    } catch(e) {
+      return { ok: false };
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  // Repõe o mapa (níveis concluídos e pontos) e o sítio onde o aluno estava.
+  function applyRecord(rec){
+    state.points = 0;
+    state.status = { 1:'unlocked', 2:'locked', 3:'locked', 4:'locked', 5:'locked' };
+    const done = String((rec && rec.concluidos) || '').split(/[^0-9]+/).map(Number).filter(n => n >= 1 && n <= LEVELS.length);
+    LEVELS.forEach(l => {
+      if(done.includes(l.id)){
+        state.status[l.id] = 'completed';
+        state.points += l.basePoints;
+        if(l.id < LEVELS.length && state.status[l.id + 1] === 'locked') state.status[l.id + 1] = 'unlocked';
+      }
+    });
+    const nivel = rec ? Number(rec.nivelAtual) || null : null;
+    const passo = (rec && rec.passo !== '' && rec.passo !== null && rec.passo !== undefined) ? Number(rec.passo) : null;
+    progress.nivelAtual = nivel;
+    progress.passo = Number.isInteger(passo) ? passo : null;
+    progress.onde = (rec && rec.onde) || '';
+    progress.tipoPasso = null;
+    // Rascunho do projeto guardado: repõe o texto e a hora de início.
+    if(nivel && rec && (rec.proposta || rec.material || rec.inicioProjeto)){
+      saveProjectDraft(nivel, {
+        proposta: rec.proposta || '',
+        material: rec.material || '',
+        startedAt: Number(rec.inicioProjeto) || Date.now(),
+      });
+    }
+    render();
+  }
+
+  function enterAsStudent(student, rec){
+    // Se o aluno já existe, mantém o nome e a turma como ficaram registados da primeira vez
+    // (mesmo que hoje os tenha escrito com maiúsculas ou sem acentos), para tudo bater certo na folha.
+    if(rec && rec.nome) student.nome = rec.nome;
+    if(rec && rec.turma) student.turma = rec.turma;
+    currentStudent = student;
+    applyRecord(rec);
+    document.getElementById('login-screen').classList.remove('open');
+    const tag = document.getElementById('student-tag');
+    tag.innerHTML = `${student.nome} (${student.turma}) · <button type="button" id="switch-student-btn">Não és tu?</button>`;
+    document.getElementById('switch-student-btn').addEventListener('click', () => location.reload());
+    sendProgress();
+    const n = progress.nivelAtual;
+    if(n && state.status[n] !== 'locked' && state.status[n] !== 'completed') openLevel(n);
+  }
+
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    const nome = document.getElementById('login-nome').value.trim().replace(/\s+/g, ' ');
+    const turma = document.getElementById('login-turma').value.trim().replace(/\s+/g, ' ');
+    const msgEl = document.getElementById('login-msg');
+    const btn = document.getElementById('login-btn');
+    if(!nome || !turma){
+      msgEl.textContent = 'Preenche o nome e a turma para entrares.';
+      return;
+    }
+    const student = { nome, turma, chave: chaveAluno(nome, turma) };
+    btn.disabled = true;
+    msgEl.textContent = 'A procurar o teu progresso…';
+    const remote = await fetchRemoteProgress(student.chave);
+    const local = loadLocalRecord(student.chave);
+    // A folha manda (vale para qualquer computador); a cópia deste computador só se usa sem folha.
+    const rec = remote.ok ? (remote.rec || local) : local;
+    if(!remote.ok){
+      msgEl.innerHTML = 'Não foi possível ligar à folha da professora. Vais continuar com o que está guardado neste computador.<br><button class="complete-btn" id="login-continue-btn" style="margin-top:12px;">Continuar</button>';
+      btn.disabled = false;
+      document.getElementById('login-continue-btn').addEventListener('click', () => enterAsStudent(student, rec));
+      return;
+    }
+    enterAsStudent(student, rec);
+  });
 
   // Remove a barra de ação fixa do passo de cópia (vive fora de #level-content,
   // presa ao <body>, por isso tem de ser limpa manualmente ao sair desse passo).
@@ -1088,7 +1294,7 @@
   function getLevelQuiz(nivel){
     const quizzes = {
       1: { questions: QUIZ_L1, time: 240 }, // 12 perguntas de aplicação — 4 minutos
-      2: { questions: QUIZ_L2, time: 75 },
+      2: { questions: QUIZ_L2, time: 240 }, // 10 perguntas de aplicação — 4 minutos
       3: { questions: QUIZ_L3, time: 75 },
       4: { questions: QUIZ_L4, time: 75 },
       5: { questions: QUIZ_L5, time: 75 },
@@ -1112,34 +1318,24 @@
         <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
       `;
       document.getElementById('review-btn').addEventListener('click', () => {
-        showIdentificationForm(nivel, student => runDocLevelSteps(nivel, student, true, 0));
+        runDocLevelSteps(nivel, currentStudent, true, 0);
       });
       return;
     }
 
-    const saved = loadLevelProgress(nivel);
-    if(saved){
-      const savedDate = new Date(saved.savedAt).toLocaleDateString('pt-PT');
-      levelContentEl.innerHTML = `
-        <div class="placeholder-card">
-          Encontrámos um trabalho por terminar neste computador: <strong>${saved.nome}</strong> (${saved.turma}), guardado em ${savedDate}.
-        </div>
-        <div class="nav-row" style="margin-top:16px;">
-          <button class="opt-btn" id="restart-fresh-btn">Começar de novo</button>
-          <button class="complete-btn" id="resume-btn" style="flex:1;">Continuar de onde fiquei</button>
-        </div>
-      `;
-      document.getElementById('resume-btn').addEventListener('click', () => {
-        runDocLevelSteps(nivel, { nome: saved.nome, turma: saved.turma }, false, saved.stepIdx);
-      });
-      document.getElementById('restart-fresh-btn').addEventListener('click', () => {
-        clearLevelProgress(nivel);
-        showIdentificationForm(nivel, student => runDocLevelSteps(nivel, student, false, 0));
-      });
+    // O aluno já estava neste nível: volta exatamente ao passo onde ficou.
+    if(progress.nivelAtual === nivel && Number.isInteger(progress.passo)){
+      runDocLevelSteps(nivel, currentStudent, false, progress.passo);
       return;
     }
 
-    showIdentificationForm(nivel, student => runDocLevelSteps(nivel, student, false, 0));
+    levelContentEl.innerHTML = `
+      <div class="placeholder-card">Vais começar o Nível ${nivel}. Quando estiveres pronto, carrega no botão.</div>
+      <button class="complete-btn" id="start-level-btn" style="margin-top:16px;">Começar Nível ${nivel}</button>
+    `;
+    document.getElementById('start-level-btn').addEventListener('click', () => {
+      runDocLevelSteps(nivel, currentStudent, false, 0);
+    });
   }
 
   function setupLevel1(){ setupDocLevel(1); }
@@ -1217,8 +1413,8 @@
 
     function showStep(){
       removeCopyActionbar();
-      if(!isReview) saveLevelProgress(nivel, student, stepIdx);
       const step = steps[stepIdx];
+      if(!isReview && step) saveLevelProgress(nivel, stepIdx, step);
       if(activeIdentSession){
         if(step && step.docStart !== undefined) activeIdentSession.restartLabel = 'OK, recomeçar o documento "' + step.docLabel + '"';
         else if(step && step.quizStart !== undefined) activeIdentSession.restartLabel = 'OK, recomeçar o quiz';
@@ -1229,7 +1425,7 @@
         activeIdentSession = null;
         restartCurrentFlow = null;
         if(!isReview){
-          clearLevelProgress(nivel);
+          markLevelCompleted(nivel);
           sendMissaoResultado(nivel, student, quizResult);
         }
         const headline = isLastLevel
@@ -1347,7 +1543,10 @@
   // ===== PROJETO FINAL DO NÍVEL (antes do quiz) =====
   const PROJECT_MINUTES = 30; // tempo previsto — só aviso, o aluno pode enviar depois
 
-  function projectDraftKey(nivel){ return 'missao6_l' + nivel + '_projeto'; }
+  function projectDraftKey(nivel){
+    const quem = currentStudent ? currentStudent.chave : 'anonimo';
+    return 'missao6_' + quem + '_l' + nivel + '_projeto';
+  }
 
   function loadProjectDraft(nivel){
     try {
@@ -1357,6 +1556,7 @@
   }
 
   function saveProjectDraft(nivel, draft){
+    draft.savedAt = Date.now();
     try { localStorage.setItem(projectDraftKey(nivel), JSON.stringify(draft)); } catch(e) { /* ignora */ }
   }
 
@@ -1370,7 +1570,10 @@
     // sair, fechar ou recarregar, volta ao mesmo texto e o relógio não recomeça.
     const draft = loadProjectDraft(nivel) || { proposta: '', material: '', startedAt: Date.now() };
     saveProjectDraft(nivel, draft);
-    if(activeIdentSession) activeIdentSession.projectMode = true;
+    if(activeIdentSession){
+      activeIdentSession.projectMode = true;
+      scheduleProgressSync(); // regista na folha a hora de início do projeto
+    }
 
     levelContentEl.innerHTML = `
       <div class="stage-title">Projeto do Nível ${nivel}</div>
@@ -1401,6 +1604,7 @@
       draft.proposta = textEl.value;
       draft.material = materialEl.value;
       saveProjectDraft(nivel, draft);
+      if(activeIdentSession) scheduleProgressSync(); // rascunho também vai para a folha
     };
     textEl.addEventListener('input', persist);
     materialEl.addEventListener('input', persist);
@@ -1422,7 +1626,7 @@
 
     function tick(){
       if(!document.body.contains(timerEl)){ clearInterval(timerId); return; }
-      const left = Math.max(0, PROJECT_MINUTES * 60 - Math.floor((Date.now() - draft.startedAt) / 1000));
+      const left = Math.min(PROJECT_MINUTES * 60, Math.max(0, PROJECT_MINUTES * 60 - Math.floor((Date.now() - draft.startedAt) / 1000)));
       const m = String(Math.floor(left / 60)).padStart(2, '0');
       const s = String(left % 60).padStart(2, '0');
       timerEl.textContent = m + ':' + s;
@@ -1680,13 +1884,7 @@
   }
 
   function completeLevel(id){
-    if(state.status[id] === 'completed') return;
-    state.status[id] = 'completed';
-    state.points += LEVELS.find(l => l.id === id).basePoints;
-    if(id < LEVELS.length && state.status[id+1] === 'locked'){
-      state.status[id+1] = 'unlocked';
-    }
-    render();
+    markLevelCompleted(id);
     closeLevel();
   }
 
