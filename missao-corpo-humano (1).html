@@ -409,6 +409,21 @@
   }
   .embed-fallback{ font-size:0.8rem; color:var(--text-dim); margin-bottom:16px; }
   .embed-fallback a{ color:var(--signal); }
+
+  /* documentos com as perguntas por baixo */
+  .doc-block{ border-top:1px solid var(--locked); padding-top:16px; margin-top:8px; margin-bottom:12px; }
+  .doc-title{ font-family:'Fraunces',serif; font-size:1.05rem; font-weight:600; color:var(--text); margin-bottom:10px; }
+  .q-block{ background:var(--bg-1); border:1px solid var(--locked); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .q-prompt{ font-weight:600; font-size:0.92rem; line-height:1.45; margin-bottom:10px; color:var(--text); }
+  .q-block .reflect-textarea{ margin-bottom:8px; }
+  .q-block .reflect-textarea[readonly]{ background:var(--bg-0); color:var(--text-dim); }
+  .q-status{ font-size:0.82rem; color:var(--ok); min-height:1.1em; margin-bottom:8px; }
+  .q-status.pendente{ color:var(--breath); }
+  .q-block .q-send{ width:100%; flex:none; }
+  .aval-badge{ display:inline-block; padding:5px 10px; border-radius:999px; font-weight:600; font-size:0.82rem; }
+  .aval-badge.aval-bem{ background:#D9F0E1; color:var(--ok); }
+  .aval-badge.aval-parcial{ background:var(--signal-dim); color:var(--breath); }
+  .aval-badge.aval-nao{ background:#F8D7D3; color:var(--danger); }
   .copy-timer{
     font-family:'JetBrains Mono',monospace; font-size:1.4rem; color:var(--breath);
     text-align:center; margin-bottom:14px;
@@ -616,7 +631,7 @@
   <div class="overlay-card">
     <span class="icon">⛔</span>
     <h2>Não tens permissão para sair da aplicação!</h2>
-    <p>Caso o faças, inicias novamente o trabalho e a tua professora é informada.</p>
+    <p>Caso o faças durante o quiz, recomeças o quiz e a tua professora é informada.</p>
     <button id="restart-ok-btn">OK, recomeçar o nível</button>
   </div>
 </div>
@@ -624,9 +639,9 @@
 <div class="overlay" id="project-exit-overlay">
   <div class="overlay-card">
     <span class="icon">⚠️</span>
-    <h2>Saíste da aplicação durante o projeto</h2>
-    <p>A tua professora foi informada. O teu texto ficou guardado — continua onde estavas.</p>
-    <button id="project-exit-ok-btn">OK, continuar o projeto</button>
+    <h2>Saíste da aplicação</h2>
+    <p>A tua professora foi informada. O teu trabalho ficou guardado — continua onde estavas.</p>
+    <button id="project-exit-ok-btn">OK, continuar</button>
   </div>
 </div>
 
@@ -993,14 +1008,15 @@
       missaoHiddenSince = Date.now();
     } else if(document.visibilityState === 'visible' && missaoHiddenSince !== null){
       missaoHiddenSince = null;
-      // Durante o projeto (30 min de escrita), a saída é registada mas NÃO apaga nada.
+      // Nos documentos e no projeto, a saída é registada mas NÃO apaga nada.
       if(activeIdentSession.projectMode){
+        const nosDocs = activeIdentSession.fase === 'docs';
         sendMissaoEvent({
-          tipo: 'Saída do separador — projeto',
+          tipo: nosDocs ? 'Saída do separador — documentos' : 'Saída do separador — projeto',
           nome: activeIdentSession.nome,
           turma: activeIdentSession.turma,
           nivel: activeIdentSession.nivel,
-          momento: 'Projeto (sem reinício)',
+          momento: nosDocs ? 'Documentos e perguntas (sem reinício)' : 'Projeto (sem reinício)',
         });
         projectExitOverlay.classList.add('open');
         return;
@@ -1018,9 +1034,6 @@
 
   document.getElementById('restart-ok-btn').addEventListener('click', () => {
     restartOverlay.classList.remove('open');
-    if(activeIdentSession){
-      clearProjectDraft(activeIdentSession.nivel);
-    }
     if(restartCurrentFlow) restartCurrentFlow();
   });
 
@@ -1112,10 +1125,7 @@
 
   function describeStep(step){
     if(!step) return '';
-    if(step.type === 'copy') return `Documento "${step.docLabel}" — parte ${step.cycle}/${CYCLES_PER_DOC}: copiar para o caderno`;
-    if(step.type === 'explain') return `Documento "${step.docLabel}": explicar ao colega`;
-    if(step.type === 'reflect') return `Reflexão — ${step.momento}`;
-    if(step.type === 'request-next') return `Pedir documento seguinte (${step.nextLabel})`;
+    if(step.type === 'docs') return 'Documentos e perguntas';
     if(step.type === 'project') return 'Projeto';
     if(step.type === 'quiz') return 'Quiz final';
     return '';
@@ -1140,7 +1150,7 @@
       turma: currentStudent.turma,
       chave: currentStudent.chave,
       nivelAtual: progress.nivelAtual || '',
-      passo: (progress.passo === null || progress.passo === undefined) ? '' : progress.passo,
+      passo: (progress.passo === null || progress.passo === undefined) ? '' : 'F' + progress.passo,
       onde: progress.onde || '',
       concluidos: completedLevelsList().join(', '),
       pontos: state.points,
@@ -1190,7 +1200,6 @@
       }
       render();
     }
-    clearProjectDraft(id);
     progress.nivelAtual = null;
     progress.passo = null;
     progress.onde = 'Nível ' + id + ' concluído';
@@ -1226,20 +1235,53 @@
       }
     });
     const nivel = rec ? Number(rec.nivelAtual) || null : null;
-    const passo = (rec && rec.passo !== '' && rec.passo !== null && rec.passo !== undefined) ? Number(rec.passo) : null;
+    const passo = rec ? lerPasso(rec.passo, nivel) : null;
     progress.nivelAtual = nivel;
     progress.passo = Number.isInteger(passo) ? passo : null;
     progress.onde = (rec && rec.onde) || '';
     progress.tipoPasso = null;
     // Rascunho do projeto guardado: repõe o texto e a hora de início.
     if(nivel && rec && (rec.proposta || rec.material || rec.inicioProjeto)){
-      saveProjectDraft(nivel, {
+      saveProjectDraft(nivel, Object.assign({}, loadProjectDraft(nivel) || {}, {
         proposta: rec.proposta || '',
         material: rec.material || '',
         startedAt: Number(rec.inicioProjeto) || Date.now(),
-      });
+      }));
     }
     render();
+  }
+
+  function diaDe(d){
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // Fechar a aplicação a meio de um nível e voltar NO MESMO DIA conta como saída
+  // (regista-se e aplica-se a regra habitual). Noutro dia, continua onde ficou.
+  function aplicarSaidaPorFecho(rec){
+    const n = progress.nivelAtual;
+    if(!rec || !n || !Number.isInteger(progress.passo)) return null;
+    if(state.status[n] === 'locked' || state.status[n] === 'completed') return null;
+    const diaRegisto = rec.dia || (rec.carimbo ? diaDe(new Date(Number(rec.carimbo))) : '');
+    if(!diaRegisto || diaRegisto !== diaDe(new Date())) return null;
+    const step = buildLevelSteps(n)[progress.passo];
+    if(!step) return null;
+    // Documentos e projeto: regista, mas o trabalho fica guardado.
+    if(step.type !== 'quiz'){
+      sendMissaoEvent({
+        tipo: step.type === 'docs' ? 'Saída do separador — documentos' : 'Saída do separador — projeto',
+        nome: currentStudent.nome, turma: currentStudent.turma, nivel: n,
+        momento: 'Fechou a aplicação (sem reinício)',
+      });
+      return 'projeto';
+    }
+    // Quiz: recomeça o quiz.
+    sendMissaoEvent({
+      tipo: 'Saída do separador — reinício',
+      nome: currentStudent.nome, turma: currentStudent.turma, nivel: n,
+      momento: 'Fechou a aplicação',
+    });
+    progress.passo = step.quizStart;
+    return 'reinicio';
   }
 
   function enterAsStudent(student, rec){
@@ -1253,9 +1295,18 @@
     const tag = document.getElementById('student-tag');
     tag.innerHTML = `${student.nome} (${student.turma}) · <button type="button" id="switch-student-btn">Não és tu?</button>`;
     document.getElementById('switch-student-btn').addEventListener('click', () => location.reload());
+    const saida = aplicarSaidaPorFecho(rec);
     sendProgress();
     const n = progress.nivelAtual;
-    if(n && state.status[n] !== 'locked' && state.status[n] !== 'completed') openLevel(n);
+    if(n && state.status[n] !== 'locked' && state.status[n] !== 'completed'){
+      openLevel(n);
+      if(saida === 'reinicio'){
+        restartOkBtn.textContent = (activeIdentSession && activeIdentSession.restartLabel) || ('OK, recomeçar o Nível ' + n);
+        restartOverlay.classList.add('open');
+      } else if(saida === 'projeto'){
+        projectExitOverlay.classList.add('open');
+      }
+    }
   }
 
   document.getElementById('login-btn').addEventListener('click', async () => {
@@ -1294,7 +1345,7 @@
   // Quiz final e tempo (em segundos) de cada nível.
   function getLevelQuiz(nivel){
     const quizzes = {
-      1: { questions: QUIZ_L1, time: 240 }, // 12 perguntas de aplicação — 4 minutos
+      1: { questions: QUIZ_L1, time: null, tentativas: 2 }, // 12 perguntas, sem tempo, 2 tentativas (conta a melhor)
       2: { questions: QUIZ_L2, time: 240 }, // 10 perguntas de aplicação — 4 minutos
       3: { questions: QUIZ_L3, time: 75 },
       4: { questions: QUIZ_L4, time: 75 },
@@ -1312,14 +1363,30 @@
 
     if(state.status[nivel] === 'completed'){
       const msg = nivel === LEVELS.length
-        ? 'Já concluíste o jogo — parabéns! Podes rever os desafios para consolidar a matéria, sem perder pontos.'
-        : 'Já concluíste este nível — bom trabalho! Podes rever os desafios para consolidar a matéria, sem perder pontos.';
+        ? 'Já concluíste o jogo — parabéns! Podes ver as avaliações das tuas respostas, alterar o projeto ou voltar a fazer o quiz.'
+        : 'Já concluíste este nível — bom trabalho! Podes ver as avaliações das tuas respostas, alterar o projeto ou voltar a fazer o quiz.';
       levelContentEl.innerHTML = `
         <div class="placeholder-card">${msg}</div>
-        <button class="complete-btn" id="review-btn" style="margin-top:16px;">Rever desafios</button>
+        <button class="complete-btn" id="see-docs-btn" style="margin-top:16px;">Documentos e avaliações das respostas</button>
+        <button class="complete-btn" id="see-project-btn" style="margin-top:10px;">Ver e alterar o projeto</button>
+        <button class="opt-btn" id="review-btn" style="margin-top:10px;width:100%;">Rever o quiz</button>
       `;
+      document.getElementById('see-docs-btn').addEventListener('click', () => {
+        renderDocsPhase(nivel, currentStudent, () => setupDocLevel(nivel), true);
+      });
+      document.getElementById('see-project-btn').addEventListener('click', () => {
+        renderProjectPhase(nivel, currentStudent, () => setupDocLevel(nivel), true);
+      });
+      // Revisão: só o quiz (sem os documentos). Não conta para a nota nem é enviado para a folha.
       document.getElementById('review-btn').addEventListener('click', () => {
-        runDocLevelSteps(nivel, currentStudent, true, 0);
+        const quiz = getLevelQuiz(nivel);
+        runQuizStage(quiz.questions, `Quiz do Nível ${nivel} — revisão`, () => {
+          levelContentEl.innerHTML = `
+            <div class="placeholder-card">Terminaste a revisão do quiz do Nível ${nivel}.</div>
+            <button class="complete-btn" id="review-back-btn" style="margin-top:16px;">Voltar ao mapa</button>
+          `;
+          document.getElementById('review-back-btn').addEventListener('click', closeLevel);
+        }, quiz.time);
       });
       return;
     }
@@ -1345,7 +1412,7 @@
   function setupLevel4(){ setupDocLevel(4); }
   function setupLevel5(){ setupDocLevel(5); }
 
-  const CYCLES_PER_DOC = 2; // ciclos completos (copiar→explicar→refletir) antes de poder pedir o documento seguinte
+  const CYCLES_PER_DOC = 2; // perguntas por documento
 
   // Uma pergunta de reflexão diferente em cada momento, para os alunos não
   // conseguirem reutilizar sempre a mesma resposta genérica. As mesmas 4 em todos os níveis.
@@ -1356,59 +1423,51 @@
     'Se explicasses isto a um aluno mais novo, que palavra ou ideia confusa evitarias usar?',
   ];
 
-  function buildLevelSteps(nivel){
-    const links = LEVEL_COPY_LINKS[nivel];
-    const steps = [];
-    let reflectIdx = 0;
-    links.forEach((link, idx) => {
-      // docStart = passo onde começa este documento. Se o aluno sair do separador
-      // durante este documento, recomeça AQUI (e não no 1.º documento do nível).
-      const docStart = steps.length;
-      const docLabel = link.label;
-      for(let cycle = 1; cycle <= CYCLES_PER_DOC; cycle++){
-        steps.push({ type: 'copy', link, cycle, docStart, docLabel });
-        steps.push({ type: 'explain', docStart, docLabel });
-        steps.push({
-          type: 'reflect',
-          momento: `${link.label} (parte ${cycle}/${CYCLES_PER_DOC})`,
-          prompt: REFLECT_PROMPTS[reflectIdx % REFLECT_PROMPTS.length],
-          docStart,
-          docLabel,
-        });
-        reflectIdx++;
-      }
-      const isLast = idx === links.length - 1;
-      if(!isLast){
-        // O documento atual já está concluído: sair aqui recomeça no documento seguinte.
-        steps.push({
-          type: 'request-next',
-          nextLabel: links[idx + 1].label,
-          docStart: steps.length + 1,
-          docLabel: links[idx + 1].label,
-        });
+  // Perguntas de cada documento (2 por documento). O "momento" identifica a pergunta na folha.
+  function levelQuestions(nivel){
+    const out = [];
+    let k = 0;
+    LEVEL_COPY_LINKS[nivel].forEach((link, d) => {
+      for(let c = 1; c <= CYCLES_PER_DOC; c++){
+        out.push({ doc: d, numero: k + 1, momento: `${link.label} (parte ${c}/${CYCLES_PER_DOC})`, prompt: REFLECT_PROMPTS[k % REFLECT_PROMPTS.length] });
+        k++;
       }
     });
-    steps.push({ type: 'project' });
-    // Sair durante o quiz recomeça só o quiz (os momentos de cópia já estão feitos).
-    steps.push({ type: 'quiz', quizStart: steps.length });
-    return steps;
+    return out;
+  }
+
+  // Cada nível tem três fases: documentos e perguntas → projeto → quiz.
+  function buildLevelSteps(nivel){
+    return [
+      { type: 'docs' },
+      { type: 'project' },
+      { type: 'quiz', quizStart: 2 },
+    ];
+  }
+
+  // Lê o "passo" guardado. As versões anteriores guardavam o número do passo antigo
+  // (cópia, colega, reflexão…); aqui passa para a fase equivalente.
+  function lerPasso(raw, nivel){
+    if(raw === '' || raw === null || raw === undefined) return null;
+    const s = String(raw);
+    if(/^F\d+$/.test(s)) return Number(s.slice(1));
+    const n = Number(s);
+    if(!Number.isInteger(n) || !nivel || !LEVEL_COPY_LINKS[nivel]) return null;
+    const docs = LEVEL_COPY_LINKS[nivel].length;
+    const antigoProjeto = docs * CYCLES_PER_DOC * 3 + (docs - 1);
+    if(n === antigoProjeto) return 1;
+    if(n === antigoProjeto + 1) return 2;
+    return 0;
   }
 
   function runDocLevelSteps(nivel, student, isReview, startStepIdx){
     activeIdentSession = isReview ? null : { nome: student.nome, turma: student.turma, nivel: nivel };
     const steps = buildLevelSteps(nivel);
-    // Nos documentos, recomeça no início do documento em que o aluno está;
-    // no quiz, recomeça só o quiz.
-    restartCurrentFlow = isReview ? null : () => {
-      const st = steps[stepIdx];
-      let start = 0;
-      if(st && st.docStart !== undefined) start = st.docStart;
-      else if(st && st.quizStart !== undefined) start = st.quizStart;
-      runDocLevelSteps(nivel, student, false, start);
-    };
-    const quiz = getLevelQuiz(nivel);
+    // Só no quiz é que sair obriga a recomeçar (recomeça o quiz). Nos documentos e no
+    // projeto a saída é registada, mas o trabalho fica guardado.
+    restartCurrentFlow = isReview ? null : () => runDocLevelSteps(nivel, student, false, 2);
     const isLastLevel = nivel === LEVELS.length;
-    let stepIdx = startStepIdx || 0;
+    let stepIdx = (Number.isInteger(startStepIdx) && startStepIdx >= 0 && startStepIdx < steps.length) ? startStepIdx : 0;
     let quizResult = null;
     showStep();
 
@@ -1417,12 +1476,12 @@
       const step = steps[stepIdx];
       if(!isReview && step) saveLevelProgress(nivel, stepIdx, step);
       if(activeIdentSession){
-        if(step && step.docStart !== undefined) activeIdentSession.restartLabel = 'OK, recomeçar o documento "' + step.docLabel + '"';
-        else if(step && step.quizStart !== undefined) activeIdentSession.restartLabel = 'OK, recomeçar o quiz';
-        else activeIdentSession.restartLabel = 'OK, recomeçar o Nível ' + nivel;
+        activeIdentSession.projectMode = !!step && step.type !== 'quiz';
+        activeIdentSession.fase = step ? step.type : null;
+        activeIdentSession.restartLabel = 'OK, recomeçar o quiz';
       }
       if(!step){
-        // Chegámos ao fim dos passos (depois do quiz) — mostra a recapitulação.
+        // Chegámos ao fim (depois do quiz) — mostra a recapitulação.
         activeIdentSession = null;
         restartCurrentFlow = null;
         if(!isReview){
@@ -1437,20 +1496,226 @@
         btn.textContent = isReview ? 'Voltar ao mapa' : (isLastLevel ? 'Concluir Jogo' : `Concluir Nível ${nivel}`);
         btn.addEventListener('click', () => { isReview ? closeLevel() : completeLevel(nivel); });
         levelContentEl.appendChild(btn);
-      } else if(step.type === 'copy'){
-        renderCopyStep(step.link, step.cycle, () => { stepIdx++; showStep(); });
-      } else if(step.type === 'explain'){
-        renderExplainStep(() => { stepIdx++; showStep(); });
-      } else if(step.type === 'reflect'){
-        renderReflectStep(nivel, student, step.momento, step.prompt, () => { stepIdx++; showStep(); });
-      } else if(step.type === 'request-next'){
-        renderRequestNextStep(step.nextLabel, () => { stepIdx++; showStep(); });
+      } else if(step.type === 'docs'){
+        renderDocsPhase(nivel, student, () => { stepIdx++; showStep(); }, false);
       } else if(step.type === 'project'){
-        renderProjectStep(nivel, student, () => { stepIdx++; showStep(); });
+        renderProjectPhase(nivel, student, () => { stepIdx++; showStep(); }, false);
       } else if(step.type === 'quiz'){
-        runQuizStage(quiz.questions, `Quiz Final do Nível ${nivel}`, (r) => { quizResult = r; stepIdx++; showStep(); }, quiz.time);
+        runLevelQuiz(nivel, `Quiz Final do Nível ${nivel}`, (r) => { quizResult = r; stepIdx++; showStep(); });
       }
     }
+  }
+
+  // ===== RESPOSTAS ÀS PERGUNTAS (guardadas neste computador e na folha) =====
+  function respKey(nivel){ return 'missao6_' + (currentStudent ? currentStudent.chave : 'anonimo') + '_l' + nivel + '_respostas'; }
+  function loadResp(nivel){
+    try { return JSON.parse(localStorage.getItem(respKey(nivel))) || {}; } catch(e) { return {}; }
+  }
+  function saveResp(nivel, obj){
+    try { localStorage.setItem(respKey(nivel), JSON.stringify(obj)); } catch(e) { /* ignora */ }
+  }
+
+  // Pede à folha as respostas deste aluno neste nível, com a avaliação da professora.
+  async function fetchRespostas(nivel){
+    if(!currentStudent || !MISSAO_SCRIPT_URL || MISSAO_SCRIPT_URL === 'COLOCAR_AQUI_O_URL_DO_SCRIPT') return null;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const url = MISSAO_SCRIPT_URL + '?acao=respostas&nivel=' + nivel +
+        '&nome=' + encodeURIComponent(currentStudent.nome) + '&turma=' + encodeURIComponent(currentStudent.turma);
+      const r = await fetch(url, { signal: ctrl.signal });
+      const j = await r.json();
+      return (j && j.ok) ? j : null;
+    } catch(e) {
+      return null;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  function avalClasse(a){
+    if(a === 'Respondeu bem') return 'aval-bem';
+    if(a === 'Respondeu parcialmente') return 'aval-parcial';
+    return 'aval-nao';
+  }
+
+  function docEmbedHtml(link, i){
+    return `
+      <div class="doc-title">Documento ${i + 1}: ${link.label}</div>
+      <iframe class="embed-frame" src="${link.url}" title="${link.label}" loading="lazy"></iframe>
+      <div class="embed-fallback">Se a página não aparecer acima, abre-a numa nova aba: <a href="${link.url}" target="_blank" rel="noopener">${link.label}</a></div>`;
+  }
+
+  // ===== FASE 1: DOCUMENTOS E PERGUNTAS (tudo visível, sem tempo) =====
+  // consulta = true quando o nível já está concluído (o botão do fundo só volta atrás).
+  function renderDocsPhase(nivel, student, onNext, consulta){
+    removeCopyActionbar();
+    const links = LEVEL_COPY_LINKS[nivel];
+    const perguntas = levelQuestions(nivel);
+    const resp = loadResp(nivel);
+    let html = `
+      <div class="stage-title">Documentos e perguntas — Nível ${nivel}</div>
+      <div class="stage-progress">Lê os documentos, passa o essencial para o caderno e responde às perguntas por baixo de cada um. Podes alterar uma resposta até a professora a avaliar.</div>`;
+    links.forEach((link, d) => {
+      html += `<div class="doc-block">${docEmbedHtml(link, d)}`;
+      perguntas.filter(p => p.doc === d).forEach(p => {
+        html += `
+          <div class="q-block" data-momento="${p.momento.replace(/"/g, '&quot;')}">
+            <div class="q-prompt">Pergunta ${p.numero}: ${p.prompt}</div>
+            <textarea class="reflect-textarea q-text" placeholder="Escreve aqui a tua resposta..."></textarea>
+            <div class="q-status"></div>
+            <button class="opt-btn q-send" type="button">Enviar resposta</button>
+          </div>`;
+      });
+      html += `</div>`;
+    });
+    html += `
+      <button class="opt-btn" id="refresh-aval-btn" type="button" style="width:100%;">↻ Ver avaliações da professora</button>
+      <div class="project-hint" id="aval-msg" style="margin:8px 0 0;"></div>
+      <div class="id-error" id="docs-error"></div>
+      <button class="complete-btn" id="docs-next-btn">${consulta ? 'Voltar' : 'Passar ao projeto'}</button>`;
+    levelContentEl.innerHTML = html;
+
+    let servidor = {}; // momento -> { texto, avaliacao }
+    const blocos = Array.from(levelContentEl.querySelectorAll('.q-block'));
+
+    function estaEnviada(m){
+      return !!(servidor[m] && servidor[m].texto) || !!(resp[m] && resp[m].enviada);
+    }
+
+    function pintar(bloco){
+      const m = bloco.dataset.momento;
+      const ta = bloco.querySelector('.q-text');
+      const st = bloco.querySelector('.q-status');
+      const bt = bloco.querySelector('.q-send');
+      const aval = servidor[m] && servidor[m].avaliacao;
+      if(aval){
+        ta.readOnly = true;
+        bt.style.display = 'none';
+        st.innerHTML = `<span class="aval-badge ${avalClasse(aval)}">Avaliação da professora: ${aval}</span>`;
+        return;
+      }
+      ta.readOnly = false;
+      bt.style.display = '';
+      const enviada = estaEnviada(m);
+      const ultimoEnviado = (resp[m] && resp[m].enviadoTexto !== undefined) ? resp[m].enviadoTexto : (servidor[m] ? servidor[m].texto : '');
+      bt.textContent = enviada ? 'Atualizar resposta' : 'Enviar resposta';
+      st.className = 'q-status';
+      if(enviada && ta.value.trim() !== String(ultimoEnviado || '').trim()){
+        st.textContent = 'Tens alterações por enviar — carrega em "Atualizar resposta".';
+        st.classList.add('pendente');
+      } else {
+        st.textContent = enviada ? '✔ Enviada — podes alterar até a professora avaliar.' : '';
+      }
+    }
+
+    function preencher(){
+      blocos.forEach(b => {
+        const m = b.dataset.momento;
+        const ta = b.querySelector('.q-text');
+        const srv = servidor[m];
+        const loc = resp[m] || {};
+        if(srv && srv.avaliacao) ta.value = srv.texto || loc.texto || '';
+        else if(loc.texto) ta.value = loc.texto;
+        else if(srv && srv.texto) ta.value = srv.texto;
+        pintar(b);
+      });
+    }
+
+    blocos.forEach(b => {
+      const m = b.dataset.momento;
+      const ta = b.querySelector('.q-text');
+      ta.addEventListener('input', () => {
+        resp[m] = Object.assign({}, resp[m], { texto: ta.value });
+        saveResp(nivel, resp);
+        pintar(b);
+      });
+      b.querySelector('.q-send').addEventListener('click', () => {
+        const texto = ta.value.trim();
+        const st = b.querySelector('.q-status');
+        if(!texto){
+          st.textContent = 'Escreve a resposta antes de enviar.';
+          st.className = 'q-status pendente';
+          return;
+        }
+        sendMissaoEvent({ tipo: 'Reflexão', nome: student.nome, turma: student.turma, nivel: nivel, momento: m, texto: texto });
+        resp[m] = Object.assign({}, resp[m], { texto: ta.value, enviada: true, enviadoTexto: texto });
+        saveResp(nivel, resp);
+        pintar(b);
+      });
+    });
+
+    async function carregar(){
+      const msg = document.getElementById('aval-msg');
+      if(msg) msg.textContent = 'A ver as avaliações da professora…';
+      const j = await fetchRespostas(nivel);
+      if(!document.body.contains(msg)) return; // o aluno já mudou de ecrã
+      if(j){
+        servidor = j.reflexoes || {};
+        msg.textContent = '';
+      } else {
+        msg.textContent = 'Não foi possível ver as avaliações agora. Tenta mais tarde.';
+      }
+      preencher();
+    }
+
+    document.getElementById('refresh-aval-btn').addEventListener('click', carregar);
+    document.getElementById('docs-next-btn').addEventListener('click', () => {
+      if(consulta){ onNext(); return; }
+      const faltam = blocos.filter(b => !estaEnviada(b.dataset.momento)).length;
+      if(faltam){
+        document.getElementById('docs-error').textContent =
+          faltam === 1 ? 'Falta enviar a resposta a 1 pergunta antes de passares ao projeto.'
+                       : `Faltam enviar as respostas a ${faltam} perguntas antes de passares ao projeto.`;
+        return;
+      }
+      onNext();
+    });
+
+    preencher();
+    carregar();
+  }
+
+  // ===== QUIZ DO NÍVEL (no Nível 1: duas tentativas, conta a melhor) =====
+  function quizKey(nivel){ return 'missao6_' + (currentStudent ? currentStudent.chave : 'anonimo') + '_l' + nivel + '_quiz'; }
+
+  function runLevelQuiz(nivel, title, onDone){
+    const quiz = getLevelQuiz(nivel);
+    if(!quiz.tentativas){
+      runQuizStage(quiz.questions, title, onDone, quiz.time);
+      return;
+    }
+    let reg;
+    try { reg = JSON.parse(localStorage.getItem(quizKey(nivel))) || { feitas: 0, melhor: null }; }
+    catch(e) { reg = { feitas: 0, melhor: null }; }
+    const guardar = () => { try { localStorage.setItem(quizKey(nivel), JSON.stringify(reg)); } catch(e) { /* ignora */ } };
+
+    function resumo(){
+      const m = reg.melhor;
+      const restam = quiz.tentativas - reg.feitas;
+      levelContentEl.innerHTML = `
+        <div class="stage-title">${title}</div>
+        <div class="placeholder-card">${reg.feitas}.ª tentativa concluída.<br>Melhor resultado: <strong>${m.score} / ${m.total}</strong> (${m.pct}% — nota: ${m.nota}/20)</div>
+        ${restam > 0 ? `<div class="stage-progress" style="margin-top:12px;">Ainda tens mais ${restam === 1 ? 'uma tentativa' : restam + ' tentativas'}. Conta a melhor nota.</div>` : ''}
+        <div class="flash-btns" style="margin-top:16px;">
+          ${restam > 0 ? `<button class="opt-btn" id="quiz-again-btn">Fazer a ${reg.feitas + 1}.ª tentativa</button>` : ''}
+          <button class="complete-btn" id="quiz-done-btn" style="flex:1;">${restam > 0 ? 'Ficar com esta nota' : 'Continuar'}</button>
+        </div>`;
+      if(restam > 0) document.getElementById('quiz-again-btn').addEventListener('click', tentar);
+      document.getElementById('quiz-done-btn').addEventListener('click', () => onDone(reg.melhor));
+    }
+
+    function tentar(){
+      runQuizStage(quiz.questions, `${title} — ${reg.feitas + 1}.ª tentativa de ${quiz.tentativas}`, (r) => {
+        reg.feitas++;
+        if(!reg.melhor || r.score > reg.melhor.score) reg.melhor = r;
+        guardar();
+        resumo();
+      }, quiz.time, { direto: true });
+    }
+
+    if(reg.feitas > 0 && reg.melhor) resumo();
+    else tentar();
   }
 
   function renderCopyStep(link, cycle, onDone){
@@ -1563,16 +1828,16 @@
     try { localStorage.removeItem(projectDraftKey(nivel)); } catch(e) { /* ignora */ }
   }
 
-  function renderProjectStep(nivel, student, onDone){
+  // ===== FASE 2: PROJETO (sempre visível e editável), com os documentos por baixo =====
+  // consulta = true quando o nível já está concluído (o botão do fundo só volta atrás).
+  function renderProjectPhase(nivel, student, onNext, consulta){
     removeCopyActionbar();
-    // O texto e a hora de início ficam guardados neste computador: se o aluno
-    // sair, fechar ou recarregar, volta ao mesmo texto e o relógio não recomeça.
+    // O texto e a hora de início ficam guardados neste computador (e na folha):
+    // se o aluno sair, fechar ou recarregar, volta ao mesmo texto e o relógio não recomeça.
     const draft = loadProjectDraft(nivel) || { proposta: '', material: '', startedAt: Date.now() };
     saveProjectDraft(nivel, draft);
-    if(activeIdentSession){
-      activeIdentSession.projectMode = true;
-      scheduleProgressSync(); // regista na folha a hora de início do projeto
-    }
+    if(activeIdentSession) scheduleProgressSync(); // regista na folha a hora de início do projeto
+    const links = LEVEL_COPY_LINKS[nivel];
 
     levelContentEl.innerHTML = `
       <div class="stage-title">Projeto do Nível ${nivel}</div>
@@ -1582,28 +1847,49 @@
         Deves mostrar que refletiste sobre a tarefa e propor algo que seja possível fazer.
       </div>
       <div class="stage-progress" style="margin-top:14px;">1.º Faz primeiro um rascunho no teu caderno.<br>2.º Depois passa a versão final para aqui.</div>
+      ${consulta ? '' : `
       <div class="copy-timer" id="project-timer">${PROJECT_MINUTES}:00</div>
-      <div class="project-hint" id="project-hint">Tens ${PROJECT_MINUTES} minutos para este projeto.</div>
+      <div class="project-hint" id="project-hint">Tens ${PROJECT_MINUTES} minutos para este projeto.</div>`}
       <label class="project-label" for="project-text">A tua proposta de projeto</label>
       <textarea class="reflect-textarea" id="project-text" style="min-height:220px;" placeholder="Escreve aqui a tua proposta..."></textarea>
       <label class="project-label" for="project-material">Que material precisas para o teu projeto?</label>
       <textarea class="reflect-textarea" id="project-material" placeholder="Ex.: cartolinas, computador, bola, cronómetro..."></textarea>
       <div class="id-error" id="project-error"></div>
+      <div class="q-status" id="project-status"></div>
       <button class="complete-btn" id="project-send-btn">Enviar projeto</button>
+      <div class="stage-title" style="margin-top:28px;">Documentos de apoio</div>
+      ${links.map((l, i) => `<div class="doc-block">${docEmbedHtml(l, i)}</div>`).join('')}
+      <div class="id-error" id="project-next-error"></div>
+      <button class="complete-btn" id="project-next-btn">${consulta ? 'Voltar' : 'Ir para o quiz'}</button>
     `;
 
     const textEl = document.getElementById('project-text');
     const materialEl = document.getElementById('project-material');
-    const timerEl = document.getElementById('project-timer');
-    const hintEl = document.getElementById('project-hint');
-    textEl.value = draft.proposta;
-    materialEl.value = draft.material;
+    const statusEl = document.getElementById('project-status');
+    const sendBtn = document.getElementById('project-send-btn');
+    textEl.value = draft.proposta || '';
+    materialEl.value = draft.material || '';
+
+    function pintar(){
+      sendBtn.textContent = draft.enviado ? 'Atualizar projeto' : 'Enviar projeto';
+      statusEl.className = 'q-status';
+      if(!draft.enviado){ statusEl.textContent = ''; return; }
+      const alterado = (textEl.value.trim() !== String(draft.enviadoTexto || '').trim()) ||
+                       (materialEl.value.trim() !== String(draft.enviadoMaterial || '').trim());
+      if(alterado){
+        statusEl.textContent = 'Tens alterações por enviar — carrega em "Atualizar projeto".';
+        statusEl.classList.add('pendente');
+      } else {
+        statusEl.textContent = '✔ Projeto enviado — podes continuar a alterá-lo e voltar a enviar.';
+      }
+    }
 
     const persist = () => {
       draft.proposta = textEl.value;
       draft.material = materialEl.value;
       saveProjectDraft(nivel, draft);
       if(activeIdentSession) scheduleProgressSync(); // rascunho também vai para a folha
+      pintar();
     };
     textEl.addEventListener('input', persist);
     materialEl.addEventListener('input', persist);
@@ -1623,21 +1909,25 @@
       });
     });
 
-    function tick(){
-      if(!document.body.contains(timerEl)){ clearInterval(timerId); return; }
-      const left = Math.min(PROJECT_MINUTES * 60, Math.max(0, PROJECT_MINUTES * 60 - Math.floor((Date.now() - draft.startedAt) / 1000)));
-      const m = String(Math.floor(left / 60)).padStart(2, '0');
-      const s = String(left % 60).padStart(2, '0');
-      timerEl.textContent = m + ':' + s;
-      if(left <= 0){
-        hintEl.textContent = 'O tempo previsto terminou. Envia o teu projeto assim que possível.';
-        hintEl.classList.add('late');
-      }
+    // Relógio dos 30 minutos (só aviso) — não aparece quando o nível já está concluído.
+    const timerEl = document.getElementById('project-timer');
+    const hintEl = document.getElementById('project-hint');
+    let timerId = null;
+    if(timerEl){
+      const tick = () => {
+        if(!document.body.contains(timerEl)){ clearInterval(timerId); return; }
+        const left = Math.min(PROJECT_MINUTES * 60, Math.max(0, PROJECT_MINUTES * 60 - Math.floor((Date.now() - draft.startedAt) / 1000)));
+        timerEl.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+        if(left <= 0){
+          hintEl.textContent = 'O tempo previsto terminou. Envia o teu projeto assim que possível.';
+          hintEl.classList.add('late');
+        }
+      };
+      timerId = setInterval(tick, 1000);
+      tick();
     }
-    const timerId = setInterval(tick, 1000);
-    tick();
 
-    document.getElementById('project-send-btn').addEventListener('click', () => {
+    sendBtn.addEventListener('click', () => {
       const proposta = textEl.value.trim();
       const material = materialEl.value.trim();
       const errorEl = document.getElementById('project-error');
@@ -1645,7 +1935,7 @@
         errorEl.textContent = 'Preenche a proposta e o material antes de enviar.';
         return;
       }
-      clearInterval(timerId);
+      errorEl.textContent = '';
       sendMissaoEvent({
         tipo: 'Projeto',
         nome: student.nome,
@@ -1655,10 +1945,43 @@
         texto: proposta,
         material: material,
       });
-      clearProjectDraft(nivel);
-      if(activeIdentSession) activeIdentSession.projectMode = false;
-      onDone();
+      draft.enviado = true;
+      draft.enviadoTexto = proposta;
+      draft.enviadoMaterial = material;
+      saveProjectDraft(nivel, draft);
+      if(activeIdentSession) scheduleProgressSync();
+      pintar();
     });
+
+    document.getElementById('project-next-btn').addEventListener('click', () => {
+      if(consulta){ clearInterval(timerId); onNext(); return; }
+      if(!draft.enviado){
+        document.getElementById('project-next-error').textContent = 'Envia o projeto antes de ires para o quiz.';
+        return;
+      }
+      clearInterval(timerId);
+      onNext();
+    });
+
+    // Se o projeto já foi enviado (por exemplo noutro computador), a folha diz-nos.
+    fetchRespostas(nivel).then(j => {
+      if(!j || !j.projeto || !document.body.contains(textEl)) return;
+      if(!textEl.value.trim() && !materialEl.value.trim()){
+        textEl.value = j.projeto.texto || '';
+        materialEl.value = j.projeto.material || '';
+        draft.proposta = textEl.value;
+        draft.material = materialEl.value;
+      }
+      if(!draft.enviado){
+        draft.enviado = true;
+        draft.enviadoTexto = j.projeto.texto || '';
+        draft.enviadoMaterial = j.projeto.material || '';
+      }
+      saveProjectDraft(nivel, draft);
+      pintar();
+    });
+
+    pintar();
   }
 
   // Ecrã de transição obrigatório entre documentos: só aparece depois de
@@ -1754,8 +2077,10 @@
     }
   }
 
-  function runQuizStage(questions, title, onDone, timeSeconds){
-    const total = timeSeconds || 60;
+  function runQuizStage(questions, title, onDone, timeSeconds, opts){
+    opts = opts || {};
+    const semTempo = !timeSeconds; // sem limite de tempo (Nível 1)
+    const total = timeSeconds || 0;
     const deck = shuffle(questions);
     const answers = new Array(deck.length).fill(null);
     let idx = 0;
@@ -1764,23 +2089,27 @@
 
     levelContentEl.innerHTML = `
       <div class="stage-title">${title}</div>
-      <div class="stage-progress">Tens ${total} segundos no total para responder a ${deck.length} perguntas. Podes navegar entre perguntas e mudar respostas até concluíres.</div>
+      <div class="stage-progress">${semTempo
+        ? `Sem limite de tempo. Responde às ${deck.length} perguntas. Podes navegar entre perguntas e mudar respostas até concluíres.`
+        : `Tens ${total} segundos no total para responder a ${deck.length} perguntas. Podes navegar entre perguntas e mudar respostas até concluíres.`}</div>
       <button class="complete-btn" id="start-quiz-btn" style="margin-top:16px;">Começar</button>
     `;
     document.getElementById('start-quiz-btn').addEventListener('click', () => {
-      timerId = setInterval(() => {
-        timeLeft--;
-        const el = document.getElementById('quiz-timer');
-        if(el) el.textContent = '⏱ ' + timeLeft + 's';
-        if(timeLeft <= 0){ clearInterval(timerId); finishQuiz(); }
-      }, 1000);
+      if(!semTempo){
+        timerId = setInterval(() => {
+          timeLeft--;
+          const el = document.getElementById('quiz-timer');
+          if(el) el.textContent = '⏱ ' + timeLeft + 's';
+          if(timeLeft <= 0){ clearInterval(timerId); finishQuiz(); }
+        }, 1000);
+      }
       renderQuestion();
     });
 
     function renderQuestion(){
       const q = deck[idx];
       levelContentEl.innerHTML = `
-        <div class="quiz-timer" id="quiz-timer">⏱ ${timeLeft}s</div>
+        ${semTempo ? '' : `<div class="quiz-timer" id="quiz-timer">⏱ ${timeLeft}s</div>`}
         <div class="stage-progress">Pergunta ${idx + 1} / ${deck.length}</div>
         <div class="flash-card">${q.q}</div>
         <div class="quiz-options">
@@ -1820,6 +2149,7 @@
       deck.forEach((q, i) => { if(answers[i] === q.correct) score++; });
       const pct = Math.round((score / deck.length) * 100);
       const nota = ((score / deck.length) * 20).toFixed(1);
+      if(opts.direto){ onDone({ score, total: deck.length, pct, nota }); return; }
       levelContentEl.innerHTML = `
         <div class="placeholder-card">Resultado do quiz: <strong>${score} / ${deck.length}</strong> (${pct}% — nota: ${nota}/20)</div>
         <div class="flash-btns" style="margin-top:16px;">
@@ -1827,7 +2157,7 @@
           <button class="complete-btn" id="continue-btn" style="flex:1;">Continuar</button>
         </div>
       `;
-      document.getElementById('retry-quiz-btn').addEventListener('click', () => runQuizStage(questions, title, onDone, total));
+      document.getElementById('retry-quiz-btn').addEventListener('click', () => runQuizStage(questions, title, onDone, timeSeconds, opts));
       document.getElementById('continue-btn').addEventListener('click', () => onDone({ score, total: deck.length, pct, nota }));
     }
   }
