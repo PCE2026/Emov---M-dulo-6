@@ -1021,6 +1021,7 @@
         projectExitOverlay.classList.add('open');
         return;
       }
+      addQuizSaida(activeIdentSession.nivel); // saída durante o quiz
       restartOkBtn.textContent = activeIdentSession.restartLabel || ('OK, recomeçar o Nível ' + activeIdentSession.nivel);
       sendMissaoEvent({
         tipo: 'Saída do separador — reinício',
@@ -1063,6 +1064,15 @@
   }
 
   // Envia o resultado do quiz final de um nível para a aba "Resultados" (modo "Missão").
+  // Saídas durante o quiz de cada nível (todas as tentativas), guardadas neste computador.
+  function quizSaidasKey(nivel){ return 'missao6_' + (currentStudent ? currentStudent.chave : 'anonimo') + '_l' + nivel + '_saidas_quiz'; }
+  function getQuizSaidas(nivel){
+    try { return Number(localStorage.getItem(quizSaidasKey(nivel))) || 0; } catch(e) { return 0; }
+  }
+  function addQuizSaida(nivel){
+    try { localStorage.setItem(quizSaidasKey(nivel), String(getQuizSaidas(nivel) + 1)); } catch(e) { /* ignora */ }
+  }
+
   function sendMissaoResultado(nivel, student, quizResult){
     if(!quizResult) return;
     sendMissaoEvent({
@@ -1074,6 +1084,7 @@
       pontuacao: quizResult.score + '/' + quizResult.total,
       percentagem: quizResult.pct + '%',
       nota: quizResult.nota,
+      saidas: String(getQuizSaidas(nivel)), // coluna "Saídas do Separador" da aba Resultados
     });
   }
 
@@ -1275,6 +1286,7 @@
       return 'projeto';
     }
     // Quiz: recomeça o quiz.
+    addQuizSaida(n);
     sendMissaoEvent({
       tipo: 'Saída do separador — reinício',
       nome: currentStudent.nome, turma: currentStudent.turma, nivel: n,
