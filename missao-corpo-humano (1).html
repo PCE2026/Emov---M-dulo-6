@@ -1847,9 +1847,6 @@
         Deves mostrar que refletiste sobre a tarefa e propor algo que seja possível fazer.
       </div>
       <div class="stage-progress" style="margin-top:14px;">1.º Faz primeiro um rascunho no teu caderno.<br>2.º Depois passa a versão final para aqui.</div>
-      ${consulta ? '' : `
-      <div class="copy-timer" id="project-timer">${PROJECT_MINUTES}:00</div>
-      <div class="project-hint" id="project-hint">Tens ${PROJECT_MINUTES} minutos para este projeto.</div>`}
       <label class="project-label" for="project-text">A tua proposta de projeto</label>
       <textarea class="reflect-textarea" id="project-text" style="min-height:220px;" placeholder="Escreve aqui a tua proposta..."></textarea>
       <label class="project-label" for="project-material">Que material precisas para o teu projeto?</label>
@@ -1909,7 +1906,7 @@
       });
     });
 
-    // Relógio dos 30 minutos (só aviso) — não aparece quando o nível já está concluído.
+    // Sem relógio no projeto (pedido da professora): timerEl não existe, por isso nada corre.
     const timerEl = document.getElementById('project-timer');
     const hintEl = document.getElementById('project-hint');
     let timerId = null;
