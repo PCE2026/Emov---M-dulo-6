@@ -886,8 +886,6 @@
   const CLASSIFY_CIRC = [
     { text:'Sai do ventrículo esquerdo e leva sangue oxigenado a todo o corpo.', answer:'grande' },
     { text:'Sai do ventrículo direito e leva sangue aos pulmões.', answer:'pequena' },
-    { text:'Também chamada circulação sistémica.', answer:'grande' },
-    { text:'Também chamada circulação pulmonar.', answer:'pequena' },
     { text:'O sangue troca gases (O2/CO2) com as células dos tecidos do corpo.', answer:'grande' },
     { text:'O sangue troca gases (O2/CO2) com o ar, nos alvéolos pulmonares.', answer:'pequena' },
     { text:'Termina na aurícula esquerda, já com sangue oxigenado.', answer:'pequena' },
@@ -906,8 +904,6 @@
   ];
 
   const CLASSIFY_DC = [
-    { text:'Aumento da frequência cardíaca.', answer:'aumenta' },
-    { text:'Diminuição do volume sistólico.', answer:'diminui' },
     { text:'Estimulação do sistema nervoso simpático.', answer:'aumenta' },
     { text:'Estimulação do sistema nervoso parassimpático.', answer:'diminui' },
     { text:'Aumento do retorno venoso — chega mais sangue ao coração.', answer:'aumenta' },
@@ -921,11 +917,9 @@
     { q:'Ao correr, os músculos das pernas apertam as veias, e as válvulas impedem o sangue de recuar. Isto ajuda:', options:['A pressão sistólica','A coagulação','A pequena circulação','O retorno venoso (o sangue volta ao coração)'], correct:3 },
     { q:'Porque é melhor trotar devagar no fim do treino do que parar de repente?', options:['Porque a bomba muscular continua a ajudar o sangue a voltar ao coração, evitando tonturas','Porque o coração para de bater','Porque aumenta a temperatura do corpo','Não faz diferença'], correct:0 },
     { q:'Porque aumenta a frequência cardíaca durante o esforço físico?', options:['Para poupar energia','Para levar mais oxigénio e nutrientes aos músculos','Porque o sangue fica mais frio','Só aumenta em atletas de alta competição'], correct:1 },
-    { q:'Num treino, um atleta tem frequência cardíaca de 150 bpm e volume sistólico de 100 mL. O débito cardíaco (FC × VS) é:', options:['1,5 L/min','250 mL/min','15 L/min','150 L/min'], correct:2 },
     { q:'Em repouso, um ciclista bem treinado tem frequência cardíaca mais baixa do que uma pessoa sedentária. Isto deve-se sobretudo a:', options:['Um volume sistólico maior, que bombeia mais sangue em cada batimento','Um coração mais pequeno','Menos glóbulos vermelhos','Válvulas venosas menos eficientes'], correct:0 },
     { q:'Alguns atletas treinam em altitude e passam a produzir mais glóbulos vermelhos. Qual é a vantagem?', options:['O sangue fica mais líquido','Coagulam mais depressa','Têm menos pulsação','Transportam mais oxigénio até aos músculos'], correct:3 },
     { q:'Um jogador cai e faz um corte no joelho. A hemorragia para ao fim de poucos minutos. Que processo aconteceu?', options:['Hematose','Hemóstase (coagulação)','Homeostasia térmica','Retorno venoso'], correct:1 },
-    { q:'Num exercício intenso, a pressão arterial sistólica sobe. A pressão sistólica é a pressão no momento em que:', options:['Os ventrículos relaxam','O sangue entra nas veias','Os ventrículos se contraem','O atleta inspira'], correct:2 },
     { q:'Porque é útil a um desportista saber medir a frequência cardíaca?', options:['Para controlar a intensidade do treino e ver como recupera','Para saber a temperatura do corpo','Para medir a força dos músculos','Não tem utilidade'], correct:0 },
   ];
 
@@ -1397,7 +1391,7 @@
   function getLevelQuiz(nivel){
     const quizzes = {
       1: { questions: QUIZ_L1, time: null, tentativas: 2 }, // 12 perguntas, sem tempo, 2 tentativas (conta a melhor)
-      2: { questions: QUIZ_L2, time: 240 }, // 10 perguntas de aplicação — 4 minutos
+      2: { questions: QUIZ_L2, time: 192 }, // 8 perguntas de aplicação — 3 min 12 s
       3: { questions: QUIZ_L3, time: 75 },
       4: { questions: QUIZ_L4, time: 75 },
       5: { questions: QUIZ_L5, time: 75 },
