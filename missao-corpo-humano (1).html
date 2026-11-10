@@ -1403,10 +1403,10 @@
   function getLevelQuiz(nivel){
     const quizzes = {
       1: { questions: QUIZ_L1, time: null, tentativas: 2 }, // 12 perguntas, sem tempo, 2 tentativas (conta a melhor)
-      2: { questions: QUIZ_L2, time: 192 }, // 8 perguntas de aplicação — 3 min 12 s
-      3: { questions: QUIZ_L3, time: 75 },
-      4: { questions: QUIZ_L4, time: 75 },
-      5: { questions: QUIZ_L5, time: 75 },
+      2: { questions: QUIZ_L2, time: null }, // 8 perguntas de aplicação, sem tempo
+      3: { questions: QUIZ_L3, time: null }, // sem tempo
+      4: { questions: QUIZ_L4, time: null }, // sem tempo
+      5: { questions: QUIZ_L5, time: null }, // sem tempo
     };
     return quizzes[nivel];
   }
