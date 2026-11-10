@@ -207,6 +207,13 @@
     -webkit-overflow-scrolling:touch;
   }
   .level-screen.open{ display:flex; }
+  /* cor de fundo de cada nível */
+  .level-screen[data-nivel="1"]{ --nivel-bg:#FFF5C9; } /* amarelo */
+  .level-screen[data-nivel="2"]{ --nivel-bg:#E2F3DF; } /* verde */
+  .level-screen[data-nivel="3"]{ --nivel-bg:#E0EDFB; } /* azul */
+  .level-screen[data-nivel="4"]{ --nivel-bg:#EDE3F8; } /* roxo */
+  .level-screen[data-nivel="5"]{ --nivel-bg:#FFE4CC; } /* cor de laranja */
+  .level-screen[data-nivel], .level-screen[data-nivel] .level-header{ background:var(--nivel-bg); }
   .level-header{
     position:sticky;
     top:0;
@@ -975,6 +982,7 @@
   function openLevel(id){
     if(state.status[id] === 'locked') return;
     activeLevel = id;
+    levelScreen.dataset.nivel = id; // cor de fundo do nível
     const lvl = LEVELS.find(l => l.id === id);
     levelEyebrow.textContent = 'NÍVEL ' + id;
     levelTitle.textContent = lvl.name;
