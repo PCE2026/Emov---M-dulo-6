@@ -456,6 +456,7 @@
   .nota-nivel-falta{ margin-top:8px; font-size:0.85rem; color:var(--danger); }
   .nota-nivel-falta ul{ margin:4px 0 0 18px; padding:0; }
   .nota-nivel-aviso{ margin-top:6px; font-weight:600; }
+  .nota-nivel-concluir{ margin-top:12px; width:100%; }
   .nota-nivel-feito{ margin-top:8px; font-size:0.85rem; color:var(--ok); font-weight:600; }
 
   /* documentos com as perguntas por baixo */
@@ -1514,6 +1515,25 @@
     return falta;
   }
 
+  // Botão "Concluir Nível" na faixa do topo: aparece quando o quiz já tem nota (na folha ou
+  // neste computador) e o nível ainda não está concluído — o aluno não tem de repetir o quiz.
+  function tentativasAqui(nivel){
+    try { const r = JSON.parse(localStorage.getItem(quizKey(nivel))); return r && r.feitas > 0 ? r : null; }
+    catch(e) { return null; }
+  }
+  function podeConcluirNivel(nivel, j){
+    if(state.status[nivel] === 'completed') return false;
+    return numNota(j.quiz) !== null || quizFeitoAqui(nivel) || !!tentativasAqui(nivel);
+  }
+  function concluirNivelPeloBotao(nivel){
+    // Se a nota do quiz ainda não estiver na folha, envia a melhor tentativa feita neste computador.
+    const j = ultimasRespostas[nivel] || {};
+    const reg = tentativasAqui(nivel);
+    if(numNota(j.quiz) === null && reg && reg.melhor && !reg.enviada && currentStudent) sendMissaoResultado(nivel, currentStudent, reg.melhor);
+    markLevelCompleted(nivel);
+    closeLevel();
+  }
+
   // Volta a desenhar a faixa com a última resposta da folha (depois de o aluno enviar algo).
   function atualizarLembrete(nivel){
     if(activeLevel === nivel && ultimasRespostas[nivel]) pintarNotaNivel(nivel, ultimasRespostas[nivel]);
@@ -1550,8 +1570,11 @@
         return falta.length
           ? `<div class="nota-nivel-falta">⚠️ <strong>Ainda te falta:</strong><ul>${falta.map(f => `<li>${f}</li>`).join('')}</ul><div class="nota-nivel-aviso">Independentemente da classificação obtida, o módulo só fica realizado com todas as tarefas executadas.</div></div>`
           : '<div class="nota-nivel-feito">✔ Já fizeste todas as tarefas deste nível.</div>';
-      })()}`;
+      })()}
+      ${podeConcluirNivel(nivel, j) ? `<button class="complete-btn nota-nivel-concluir" id="nota-nivel-concluir-btn" type="button">✔ Concluir Nível ${nivel}</button>` : ''}`;
     notaNivelBanner.style.display = '';
+    const concluirBtn = document.getElementById('nota-nivel-concluir-btn');
+    if(concluirBtn) concluirBtn.addEventListener('click', () => concluirNivelPeloBotao(nivel));
   }
 
   function setupDocLevel(nivel){
@@ -1687,7 +1710,8 @@
         restartCurrentFlow = null;
         if(!isReview){
           markLevelCompleted(nivel);
-          sendMissaoResultado(nivel, student, quizResult);
+          // No Nível 1 (com tentativas) cada tentativa já foi enviada para a folha.
+          if(!getLevelQuiz(nivel).tentativas) sendMissaoResultado(nivel, student, quizResult);
         }
         const headline = `Concluíste o ${nivel}.º nível. A tua classificação vai depender das tuas reflexões, do projeto e do quiz.`;
         levelContentEl.innerHTML = buildRecapHtml(nivel, headline, { classify: [], quiz: quizResult });
@@ -1919,7 +1943,12 @@
       runQuizStage(quiz.questions, `${title} — ${reg.feitas + 1}.ª tentativa de ${quiz.tentativas}`, (r) => {
         reg.feitas++;
         if(!reg.melhor || r.score > reg.melhor.score) reg.melhor = r;
+        // Cada tentativa vai logo para a folha (conta a melhor), para não se perder
+        // se o aluno fechar antes de carregar em "Ficar com esta nota".
+        if(currentStudent){ sendMissaoResultado(nivel, currentStudent, r); reg.enviada = true; }
         guardar();
+        marcarQuizFeito(nivel);
+        atualizarLembrete(nivel);
         resumo();
       }, quiz.time, { direto: true, onBack });
     }
