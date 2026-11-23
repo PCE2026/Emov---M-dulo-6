@@ -1478,10 +1478,11 @@
     pintarNotaNivel(nivel, j);
   }
 
-  // ===== NOTA DO NÍVEL ATÉ AGORA =====
-  // As mesmas contas do "Acompanhamento": caderno 5%, perguntas 5%, projeto 70%, quiz 20%.
+  // ===== CAPACIDADES DO NÍVEL E QUIZ =====
+  // As mesmas contas do "Acompanhamento" (grelha AET): Capacidades do nível =
+  // caderno 20% + perguntas 10% + projeto 40% + trabalho de sala 30%.
   // Perguntas: Respondeu bem = 14, Respondeu parcialmente = 10, Não respondeu = 0 (média do nível).
-  // O que ainda não tem nota conta 0.
+  // Cada nota só aparece quando todos os seus elementos estão avaliados.
   const CONSELHO_TEXTO = 'Lê bem as perguntas e coloca a tua melhor resposta para poderes ter a melhor classificação possível.';
   const notaNivelBanner = document.getElementById('nota-nivel-banner');
   function numNota(v){
@@ -1552,19 +1553,23 @@
       else if(a === 'Respondeu parcialmente') parcial++;
       else if(a === 'Não respondeu') nao++;
     });
+    const sala = numNota(j.sala);
     const esperadas = levelQuestions(nivel).length;
-    const perguntas = (bem + parcial + nao) > 0 ? r1((bem * 14 + parcial * 10) / esperadas) : null;
-    const nota = r1(0.05 * (caderno || 0) + 0.05 * (perguntas || 0) + 0.70 * (projeto || 0) + 0.20 * (quiz || 0));
+    // Nota das perguntas: só quando todas as perguntas do nível estiverem avaliadas.
+    const perguntas = (bem + parcial + nao) >= esperadas ? r1((bem * 14 + parcial * 10) / esperadas) : null;
+    const completo = caderno !== null && perguntas !== null && projeto !== null && sala !== null;
+    const capacidades = completo ? r1(0.20 * caderno + 0.10 * perguntas + 0.40 * projeto + 0.30 * sala) : null;
     const parte = (nome, v, falta) => `${nome} ${v === null ? falta : fmtNota(v) + '/20'}`;
     notaNivelBanner.innerHTML = `
-      <div>🏅 Nota do nível até agora: <strong>${fmtNota(nota)} de 20</strong></div>
+      <div>🏅 Capacidades do nível: <strong>${capacidades === null ? 'aparece quando tudo estiver avaliado' : fmtNota(capacidades) + ' de 20'}</strong>
+        · Quiz: <strong>${quiz === null ? 'por fazer' : fmtNota(quiz) + ' de 20'}</strong></div>
       <div class="nota-nivel-partes">${[
         parte('Caderno', caderno, 'por avaliar'),
         parte('Perguntas', perguntas, 'por avaliar'),
         parte('Projeto', projeto, 'por avaliar'),
-        parte('Quiz', quiz, 'por fazer'),
+        parte('Trabalho de sala', sala, 'por avaliar'),
       ].join(' · ')}</div>
-      ${nota < 20 ? `<div class="nota-nivel-conselho">💡 ${CONSELHO_TEXTO}</div>` : ''}
+      ${capacidades === null || capacidades < 20 ? `<div class="nota-nivel-conselho">💡 ${CONSELHO_TEXTO}</div>` : ''}
       ${(() => {
         const falta = tarefasEmFalta(nivel, j);
         return falta.length
