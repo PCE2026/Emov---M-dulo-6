@@ -406,6 +406,35 @@
   }
   .id-error{ color:var(--danger); font-size:0.82rem; margin-top:10px; min-height:18px; }
 
+  /* "As minhas avaliações" */
+  .aval-btn{
+    margin-top:8px; background:var(--bg-1); border:1px solid var(--breath); color:var(--breath);
+    border-radius:999px; padding:6px 14px; font:inherit; font-size:0.85rem; font-weight:600; cursor:pointer;
+  }
+  .aval-screen{
+    position:fixed; inset:0; z-index:60; background:rgba(40,25,15,0.45);
+    display:none; align-items:flex-start; justify-content:center; padding:16px; overflow-y:auto;
+  }
+  .aval-screen.open{ display:flex; }
+  .aval-card{
+    background:var(--bg-1); border-radius:16px; width:100%; max-width:620px; padding:18px 18px 22px;
+    color:var(--text); box-shadow:0 10px 40px rgba(0,0,0,0.2); margin:auto 0;
+  }
+  .aval-topo{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; }
+  .aval-topo h2{ font-family:'Fraunces',serif; font-size:1.35rem; margin:0; }
+  .aval-fechar{ background:none; border:1px solid var(--locked); border-radius:999px; padding:6px 12px; font:inherit; cursor:pointer; color:var(--text); }
+  .aval-legenda{ font-size:0.8rem; color:var(--text-dim); margin:0 0 12px; line-height:1.5; }
+  .aval-nivel{ border:1px solid var(--locked); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+  .aval-nivel h3{ font-size:0.98rem; margin:0 0 8px; }
+  .aval-nivel ul{ list-style:none; margin:0; padding:0; font-size:0.88rem; line-height:1.7; }
+  .aval-perdeu{ color:var(--danger); font-size:0.8rem; }
+  .aval-total{ margin-top:8px; font-size:0.9rem; }
+  .aval-total strong{ color:var(--breath); }
+  .aval-falta{ margin-top:8px; font-size:0.84rem; color:var(--danger); }
+  .aval-coment{ font-size:0.8rem; color:var(--text-dim); margin-left:22px; white-space:pre-wrap; }
+  .aval-final{ background:#F3FAF5; border:1px solid var(--ok); border-radius:12px; padding:12px 14px; font-size:0.92rem; line-height:1.6; }
+  .aval-final strong{ color:var(--ok); }
+
   /* incorporação da página + temporizador de cópia */
   .embed-frame{
     width:100%; height:60vh; min-height:360px; border:1px solid var(--locked);
@@ -589,6 +618,17 @@
     <div class="tier" id="tier-display">—</div>
   </div>
 </header>
+
+<div class="aval-screen" id="aval-screen" role="dialog" aria-modal="true" aria-labelledby="aval-titulo">
+  <div class="aval-card">
+    <div class="aval-topo">
+      <h2 id="aval-titulo">📋 As minhas avaliações</h2>
+      <button class="aval-fechar" id="aval-fechar" type="button">Fechar</button>
+    </div>
+    <p class="aval-legenda">✔ avaliado · ⏳ por avaliar pela professora · ✖ ainda por fazer. Em cada nota vês também quanto perdeste até 20.</p>
+    <div id="aval-conteudo"></div>
+  </div>
+</div>
 
 <main>
   <div class="map-wrap">
@@ -1342,6 +1382,92 @@
     return 'reinicio';
   }
 
+  // ===== AS MINHAS AVALIAÇÕES =====
+  // Quadro sempre disponível (botão por baixo do nome): o que já está avaliado, o que falta,
+  // a nota conquistada e a perdida em cada elemento, por nível; as partes da Prova; e a
+  // classificação final do módulo, que só aparece quando tudo estiver avaliado.
+  const avalScreen = document.getElementById('aval-screen');
+  const avalConteudo = document.getElementById('aval-conteudo');
+  document.getElementById('aval-fechar').addEventListener('click', () => avalScreen.classList.remove('open'));
+  avalScreen.addEventListener('click', (e) => { if(e.target === avalScreen) avalScreen.classList.remove('open'); });
+
+  function fmtAval(x){ return String(Math.round(x * 10) / 10).replace('.', ','); }
+  function itemAval(nome, nota, semNota){
+    if(nota === null || nota === undefined) return `<li>${semNota}</li>`;
+    const perdeu = Math.round((20 - nota) * 10) / 10;
+    return `<li>✔ ${nome}: <strong>${fmtAval(nota)}/20</strong>${perdeu > 0 ? ` <span class="aval-perdeu">(perdeste ${fmtAval(perdeu)})</span>` : ''}</li>`;
+  }
+  function escAval(t){ return String(t).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+
+  function pintarAvaliacoes(j){
+    let html = '';
+    LEVELS.forEach(l => {
+      const n = l.id, d = j.niveis[n];
+      if(!d) return;
+      if(state.status[n] === 'locked'){
+        html += `<div class="aval-nivel"><h3>Nível ${n} — ${l.name}</h3><ul><li>🔒 Ainda não chegaste a este nível.</li></ul></div>`;
+        return;
+      }
+      const p = d.perguntas, falta = [];
+      if(p.respondidas < p.esperadas) falta.push(p.esperadas - p.respondidas === 1 ? 'responder a 1 pergunta' : `responder a ${p.esperadas - p.respondidas} perguntas`);
+      if(!d.projeto.entregue) falta.push('enviar o projeto');
+      if(d.quiz === null) falta.push('fazer o quiz');
+      if(d.caderno === null) falta.push('mostrar o caderno diário à professora');
+      const perguntasSemNota = p.respondidas < p.esperadas
+        ? `✖ Perguntas: respondeste a ${p.respondidas} de ${p.esperadas}`
+        : `⏳ Perguntas: ${p.avaliadas} de ${p.esperadas} avaliadas`;
+      const projetoSemNota = d.projeto.entregue ? '⏳ Projeto: por avaliar' : '✖ Projeto: por enviar';
+      html += `<div class="aval-nivel"><h3>Nível ${n} — ${l.name}</h3><ul>
+        ${itemAval('Caderno diário', d.caderno, '⏳ Caderno diário: por avaliar')}
+        ${itemAval('Perguntas', p.nota, perguntasSemNota)}
+        ${itemAval('Projeto', d.projeto.nota, projetoSemNota)}
+        ${d.projeto.comentario ? `<li class="aval-coment">💬 ${escAval(d.projeto.comentario)}</li>` : ''}
+        ${itemAval('Trabalho de sala', d.sala, '⏳ Trabalho de sala: por avaliar')}
+        ${itemAval('Participação em sala', d.part, '⏳ Participação em sala: por avaliar')}
+        ${itemAval('Quiz', d.quiz, '✖ Quiz: por fazer')}
+      </ul>
+      <div class="aval-total">🏅 Capacidades do nível: ${d.capacidades === null ? 'aparece quando tudo estiver avaliado'
+        : `<strong>${fmtAval(d.capacidades)} de 20</strong>${d.capacidades < 20 ? ` <span class="aval-perdeu">(perdeste ${fmtAval(20 - d.capacidades)})</span>` : ''}`}</div>
+      ${falta.length ? `<div class="aval-falta">⚠️ Ainda te falta: ${falta.join(' · ')}</div>` : ''}
+      </div>`;
+    });
+    // Prova
+    const partes = LEVELS.map(l => {
+      const x = j.prova ? j.prova[l.id] : undefined;
+      return `Parte ${l.id}: ${x === undefined || x === null ? 'por fazer' : `<strong>${fmtAval(x)}/20</strong>${x < 20 ? ` <span class="aval-perdeu">(perdeste ${fmtAval(20 - x)})</span>` : ''}`}`;
+    });
+    html += `<div class="aval-nivel"><h3>📝 Prova final</h3><ul>${partes.map(t => `<li>${t}</li>`).join('')}</ul></div>`;
+    // Classificação final
+    html += `<div class="aval-final">🎓 Classificação final do módulo: ${j.final === null || j.final === undefined
+      ? 'aparece quando tudo estiver avaliado (os 5 níveis e as 5 partes da Prova).'
+      : `<strong>${fmtAval(j.final)} de 20</strong>${j.final < 20 ? ` <span class="aval-perdeu">(perdeste ${fmtAval(20 - j.final)})</span>` : ''}`}
+      <div style="margin-top:6px;font-weight:600;">Independentemente da classificação obtida, o módulo só fica realizado com todas as tarefas executadas.</div></div>`;
+    avalConteudo.innerHTML = html;
+  }
+
+  async function abrirAvaliacoes(){
+    avalScreen.classList.add('open');
+    avalConteudo.innerHTML = '<p>A carregar as tuas avaliações…</p>';
+    if(!currentStudent || !MISSAO_SCRIPT_URL || MISSAO_SCRIPT_URL === 'COLOCAR_AQUI_O_URL_DO_SCRIPT'){
+      avalConteudo.innerHTML = '<p>Não foi possível ligar à folha.</p>';
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const url = MISSAO_SCRIPT_URL + '?acao=avaliacoes&nome=' + encodeURIComponent(currentStudent.nome) +
+        '&turma=' + encodeURIComponent(currentStudent.turma);
+      const r = await fetch(url, { signal: ctrl.signal });
+      const j = await r.json();
+      if(!j || !j.ok || !j.niveis) throw new Error('sem dados');
+      pintarAvaliacoes(j);
+    } catch(e) {
+      avalConteudo.innerHTML = '<p>Não foi possível carregar as avaliações agora. Tenta outra vez daqui a pouco.</p>';
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
   function enterAsStudent(student, rec){
     // Se o aluno já existe, mantém o nome e a turma como ficaram registados da primeira vez
     // (mesmo que hoje os tenha escrito com maiúsculas ou sem acentos), para tudo bater certo na folha.
@@ -1351,8 +1477,10 @@
     applyRecord(rec);
     document.getElementById('login-screen').classList.remove('open');
     const tag = document.getElementById('student-tag');
-    tag.innerHTML = `${student.nome} (${student.turma}) · <button type="button" id="switch-student-btn">Não és tu?</button>`;
+    tag.innerHTML = `${student.nome} (${student.turma}) · <button type="button" id="switch-student-btn">Não és tu?</button>
+      <div><button type="button" class="aval-btn" id="aval-btn">📋 As minhas avaliações</button></div>`;
     document.getElementById('switch-student-btn').addEventListener('click', () => location.reload());
+    document.getElementById('aval-btn').addEventListener('click', abrirAvaliacoes);
     const saida = aplicarSaidaPorFecho(rec);
     sendProgress();
     const n = progress.nivelAtual;
