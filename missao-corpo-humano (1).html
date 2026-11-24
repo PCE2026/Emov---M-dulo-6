@@ -1780,10 +1780,29 @@
     'Qual foi a parte que gostaste mais de saber?',
   ];
 
+  // Perguntas próprias de alguns níveis (em vez das 4 de sempre). Cada entrada: o documento
+  // (0 = primeiro), a parte (fica no "momento" que identifica a pergunta na folha) e o texto.
+  // As partes "1/2" e "2/2" mantêm o momento antigo, para as respostas já dadas não se perderem.
+  const PERGUNTAS_POR_NIVEL = {
+    3: [
+      { doc: 0, parte: '1/2',     prompt: 'Imagina que és uma molécula de oxigénio que entra pelo nariz de um atleta a meio de um sprint. Conta, em 4 ou 5 frases, a tua viagem até chegares a um músculo da perna. Por onde passas e o que te acontece?' },
+      { doc: 0, parte: '1/2 · b', prompt: 'Antes de marcar um penálti, o treinador diz: «Respira fundo e devagar.» Com o que aprendeste, explica se ele tem razão e porquê.' },
+      { doc: 0, parte: '2/2',     prompt: 'Se pudesses mudar uma coisa no teu aparelho respiratório para seres melhor atleta, o que mudavas? Que vantagem te daria e que problema poderia trazer?' },
+      { doc: 0, parte: '2/2 · b', prompt: 'Planeia uma experiência simples, para fazer numa aula de Educação Física, que mostre que a ventilação aumenta com o esforço. O que medias, como, e o que esperas encontrar?' },
+    ],
+  };
+
   // Perguntas de cada documento (2 por documento). O "momento" identifica a pergunta na folha.
   function levelQuestions(nivel){
     const out = [];
     let k = 0;
+    if(PERGUNTAS_POR_NIVEL[nivel]){
+      PERGUNTAS_POR_NIVEL[nivel].forEach((q, i) => {
+        const link = LEVEL_COPY_LINKS[nivel][q.doc];
+        out.push({ doc: q.doc, numero: i + 1, momento: `${link.label} (parte ${q.parte})`, prompt: q.prompt });
+      });
+      return out;
+    }
     LEVEL_COPY_LINKS[nivel].forEach((link, d) => {
       for(let c = 1; c <= CYCLES_PER_DOC; c++){
         out.push({ doc: d, numero: k + 1, momento: `${link.label} (parte ${c}/${CYCLES_PER_DOC})`, prompt: REFLECT_PROMPTS[k % REFLECT_PROMPTS.length] });
